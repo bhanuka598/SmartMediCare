@@ -1,121 +1,118 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
+import { DashboardLayout } from './components/layout/DashboardLayout';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Patient Pages
+import { PatientDashboardPage } from './pages/patient/DashboardPage';
+import { DoctorsPage } from './pages/patient/DoctorsPage';
+import { AppointmentsPage } from './pages/patient/AppointmentsPage';
+import { MedicalRecordsPage } from './pages/patient/MedicalRecordsPage';
+import { SymptomCheckerPage } from './pages/patient/SymptomCheckerPage';
 
+// Doctor Pages
+import { DoctorDashboardPage } from './pages/doctor/DashboardPage';
+import { DoctorAvailabilityPage } from './pages/doctor/AvailabilityPage';
+
+// Admin Pages
+import { AdminDashboardPage } from './pages/admin/DashboardPage';
+
+// Placeholder Component
+const PlaceholderPage = ({ title }) => (
+  <div className="flex h-[60vh] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50">
+    <div className="text-center">
+      <h2 className="text-xl font-semibold text-slate-700">{title}</h2>
+      <p className="text-slate-500 mt-2">
+        This page is under construction.
+      </p>
+    </div>
+  </div>
+);
+
+export function App() {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
 
-      <div className="ticks"></div>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          {/* Patient Routes */}
+          <Route element={<DashboardLayout allowedRoles={['patient']} />}>
+            <Route
+              path="/patient/dashboard"
+              element={<PatientDashboardPage />}
+            />
+            <Route path="/patient/doctors" element={<DoctorsPage />} />
+            <Route
+              path="/patient/appointments"
+              element={<AppointmentsPage />}
+            />
+            <Route
+              path="/patient/records"
+              element={<MedicalRecordsPage />}
+            />
+            <Route
+              path="/patient/symptom-checker"
+              element={<SymptomCheckerPage />}
+            />
+          </Route>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          {/* Doctor Routes */}
+          <Route element={<DashboardLayout allowedRoles={['doctor']} />}>
+            <Route
+              path="/doctor/dashboard"
+              element={<DoctorDashboardPage />}
+            />
+            <Route
+              path="/doctor/availability"
+              element={<DoctorAvailabilityPage />}
+            />
+            <Route
+              path="/doctor/consultations"
+              element={<PlaceholderPage title="Consultations" />}
+            />
+            <Route
+              path="/doctor/prescriptions"
+              element={<PlaceholderPage title="Prescriptions" />}
+            />
+            <Route
+              path="/doctor/patients"
+              element={<PlaceholderPage title="Patient Records" />}
+            />
+          </Route>
+
+          {/* Admin Routes */}
+          <Route element={<DashboardLayout allowedRoles={['admin']} />}>
+            <Route
+              path="/admin/dashboard"
+              element={<AdminDashboardPage />}
+            />
+            <Route
+              path="/admin/users"
+              element={<PlaceholderPage title="User Management" />}
+            />
+            <Route
+              path="/admin/verify-doctors"
+              element={<PlaceholderPage title="Verify Doctors" />}
+            />
+            <Route
+              path="/admin/transactions"
+              element={<PlaceholderPage title="Transactions" />}
+            />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
 }
-
-export default App
