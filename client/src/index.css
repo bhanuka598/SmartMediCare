@@ -1,13 +1,8 @@
-/* FONT IMPORT (MUST BE AT TOP) */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
-/* TAILWIND DIRECTIVES (REQUIRED) */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* CUSTOM STYLES */
 body {
   font-family: 'Inter', sans-serif;
-  @apply bg-slate-50 text-slate-900;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
