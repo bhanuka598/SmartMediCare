@@ -138,12 +138,12 @@ export function LandingPage() {
           <div className="flex items-center justify-center gap-2 mb-6 text-white">
             <Activity size={24} />
             <span className="text-2xl font-bold tracking-tight">
-              HealthSync
+              SmartMediCare
             </span>
           </div>
 
           <p className="mb-6">
-            © 2026 HealthSync Platform. All rights reserved.
+            © 2026 SmartMediCare Platform. All rights reserved.
           </p>
 
           <div className="flex justify-center gap-6">

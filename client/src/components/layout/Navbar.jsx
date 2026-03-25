@@ -22,7 +22,7 @@ export function Navbar() {
             <Activity size={20} />
           </div>
           <span className="text-xl font-bold tracking-tight text-slate-900">
-            HealthSync
+            SmartMediCare
           </span>
         </Link>
 
