@@ -1,0 +1,201 @@
+version: "3.9"
+
+services:
+  client:
+    build:
+      context: ./client
+    container_name: smartmedicare-client
+    ports:
+      - "3000:3000"
+    depends_on:
+      - gateway
+    environment:
+      - VITE_API_BASE_URL=http://localhost:5000
+    networks:
+      - smartcare-net
+
+  gateway:
+    build:
+      context: ./gateway
+    container_name: smartmedicare-gateway
+    ports:
+      - "5000:5000"
+    depends_on:
+      - auth-service
+      - patient-service
+      - doctor-service
+      - appointment-service
+      - payment-service
+      - notification-service
+      - telemedicine-service
+    environment:
+      - PORT=5000
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - PATIENT_SERVICE_URL=http://patient-service:5002
+      - DOCTOR_SERVICE_URL=http://doctor-service:5003
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:5004
+      - PAYMENT_SERVICE_URL=http://payment-service:5005
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5006
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:5007
+    networks:
+      - smartcare-net
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: smartmedicare-auth-service
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - MONGO_URI=mongodb://auth-db:27017/authdb
+      - JWT_SECRET=supersecretjwtkey
+    depends_on:
+      - auth-db
+    networks:
+      - smartcare-net
+
+  patient-service:
+    build:
+      context: ./services/patient-service
+    container_name: smartmedicare-patient-service
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - MONGO_URI=mongodb://patient-db:27017/patientdb
+      - JWT_SECRET=supersecretjwtkey
+    depends_on:
+      - patient-db
+    networks:
+      - smartcare-net
+
+  doctor-service:
+    build:
+      context: ./services/doctor-service
+    container_name: smartmedicare-doctor-service
+    ports:
+      - "5003:5003"
+    environment:
+      - PORT=5003
+      - MONGO_URI=mongodb://doctor-db:27017/doctordb
+      - JWT_SECRET=supersecretjwtkey
+    depends_on:
+      - doctor-db
+    networks:
+      - smartcare-net
+
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+    container_name: smartmedicare-appointment-service
+    ports:
+      - "5004:5004"
+    environment:
+      - PORT=5004
+      - MONGO_URI=mongodb://appointment-db:27017/appointmentdb
+      - JWT_SECRET=supersecretjwtkey
+    depends_on:
+      - appointment-db
+    networks:
+      - smartcare-net
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+    container_name: smartmedicare-payment-service
+    ports:
+      - "5005:5005"
+    environment:
+      - PORT=5005
+      - MONGO_URI=mongodb://payment-db:27017/paymentdb
+      - JWT_SECRET=supersecretjwtkey
+    depends_on:
+      - payment-db
+    networks:
+      - smartcare-net
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: smartmedicare-notification-service
+    ports:
+      - "5006:5006"
+    environment:
+      - PORT=5006
+      - JWT_SECRET=supersecretjwtkey
+    networks:
+      - smartcare-net
+
+  telemedicine-service:
+    build:
+      context: ./services/telemedicine-service
+    container_name: smartmedicare-telemedicine-service
+    ports:
+      - "5007:5007"
+    environment:
+      - PORT=5007
+      - JWT_SECRET=supersecretjwtkey
+    networks:
+      - smartcare-net
+
+  auth-db:
+    image: mongo:7
+    container_name: smartmedicare-auth-db
+    ports:
+      - "27018:27017"
+    volumes:
+      - auth_data:/data/db
+    networks:
+      - smartcare-net
+
+  patient-db:
+    image: mongo:7
+    container_name: smartmedicare-patient-db
+    ports:
+      - "27019:27017"
+    volumes:
+      - patient_data:/data/db
+    networks:
+      - smartcare-net
+
+  doctor-db:
+    image: mongo:7
+    container_name: smartmedicare-doctor-db
+    ports:
+      - "27020:27017"
+    volumes:
+      - doctor_data:/data/db
+    networks:
+      - smartcare-net
+
+  appointment-db:
+    image: mongo:7
+    container_name: smartmedicare-appointment-db
+    ports:
+      - "27021:27017"
+    volumes:
+      - appointment_data:/data/db
+    networks:
+      - smartcare-net
+
+  payment-db:
+    image: mongo:7
+    container_name: smartmedicare-payment-db
+    ports:
+      - "27022:27017"
+    volumes:
+      - payment_data:/data/db
+    networks:
+      - smartcare-net
+
+networks:
+  smartcare-net:
+    driver: bridge
+
+volumes:
+  auth_data:
+  patient_data:
+  doctor_data:
+  appointment_data:
+  payment_data:
