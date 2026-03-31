@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, verifyTokenAndUser, authorize } = require('../middleware/auth');
 
 // Public routes
 router.post('/register', authController.register);
@@ -11,5 +11,8 @@ router.post('/verify-token', authController.verifyToken);
 // Protected routes
 router.get('/me', verifyToken, authController.getMe);
 router.post('/change-password', verifyToken, authController.changePassword);
+
+// Admin only routes
+router.get('/users', verifyTokenAndUser, authorize('admin'), authController.getAllUsers);
 
 module.exports = router;
