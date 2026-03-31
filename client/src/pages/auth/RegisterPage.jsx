@@ -19,27 +19,56 @@ export function RegisterPage() {
   const initialRole = searchParams.get('role') || 'patient';
 
   const [role, setRole] = useState(
-    initialRole === 'doctor' ? 'doctor' : 'patient'
+    ['doctor', 'admin'].includes(initialRole) ? initialRole : 'patient'
   );
 
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [medicalLicenseNumber, setMedicalLicenseNumber] = useState('');
+  const [adminCode, setAdminCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate API call
-    setTimeout(() => {
-      login(email, role);
-      setIsLoading(false);
+    const payload = {
+      username,
+      email,
+      password,
+      role
+    };
+
+    if (role === 'doctor') {
+      payload.medicalLicenseNumber = medicalLicenseNumber;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5002/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
+      login(data.token, data.user);
       navigate(`/${role}/dashboard`);
-    }, 1000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -53,7 +82,7 @@ export function RegisterPage() {
               <Activity size={24} />
             </div>
             <span className="text-2xl font-bold tracking-tight text-slate-900">
-              HealthSync
+              SmartMediCare
             </span>
           </Link>
         </div>
@@ -62,7 +91,7 @@ export function RegisterPage() {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl">Create an account</CardTitle>
             <CardDescription>
-              Join HealthSync to manage your healthcare journey
+              Join SmartMediCare to manage your healthcare journey
             </CardDescription>
           </CardHeader>
 
@@ -70,8 +99,8 @@ export function RegisterPage() {
             <CardContent className="space-y-4">
 
               {/* Role Selector */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg mb-6">
-                {['patient', 'doctor'].map((r) => (
+              <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-lg mb-6">
+                {['patient', 'doctor', 'admin'].map((r) => (
                   <button
                     key={r}
                     type="button"
@@ -82,7 +111,7 @@ export function RegisterPage() {
                         : 'text-slate-500 hover:text-slate-900'
                     }`}
                   >
-                    I am a {r}
+                    {r === 'admin' ? 'Admin' : `I am a ${r}`}
                   </button>
                 ))}
               </div>
@@ -92,8 +121,8 @@ export function RegisterPage() {
                 label="Full Name"
                 type="text"
                 placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
 
@@ -124,9 +153,30 @@ export function RegisterPage() {
                   label="Medical License Number"
                   type="text"
                   placeholder="e.g. MD123456"
+                  value={medicalLicenseNumber}
+                  onChange={(e) => setMedicalLicenseNumber(e.target.value)}
                   required
                   helperText="Your registration will be pending admin verification."
                 />
+              )}
+
+              {/* Admin Extra Field */}
+              {role === 'admin' && (
+                <Input
+                  label="Admin Registration Code"
+                  type="password"
+                  placeholder="Enter admin code"
+                  value={adminCode}
+                  onChange={(e) => setAdminCode(e.target.value)}
+                  required
+                  helperText="Contact system owner for admin access code."
+                />
+              )}
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                  {error}
+                </div>
               )}
 
             </CardContent>

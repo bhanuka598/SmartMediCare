@@ -44,7 +44,7 @@ export function LoginPage() {
               <Activity size={24} />
             </div>
             <span className="text-2xl font-bold tracking-tight text-slate-900">
-              HealthSync
+              SmartMediCare
             </span>
           </Link>
         </div>
