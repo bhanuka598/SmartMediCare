@@ -11,7 +11,7 @@ const generateToken = (userId) => {
 // Register new user
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password, role, medicalLicenseNumber } = req.body;
 
     // Validate required fields
     if (!username || !email || !password || !role) {
@@ -28,6 +28,13 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Require medical license number for doctors
+    if (role === 'doctor' && !medicalLicenseNumber) {
+      return res.status(400).json({ 
+        message: 'Medical license number is required for doctor registration' 
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ 
       $or: [{ username }, { email }] 
@@ -39,12 +46,21 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Username already taken' });
     }
 
+    // Check if medical license number is already registered (for doctors)
+    if (role === 'doctor') {
+      const existingLicense = await User.findOne({ medicalLicenseNumber });
+      if (existingLicense) {
+        return res.status(400).json({ message: 'Medical license number already registered' });
+      }
+    }
+
     // Create new user
     const user = new User({
       username,
       email,
       password,
-      role
+      role,
+      medicalLicenseNumber: role === 'doctor' ? medicalLicenseNumber : null
     });
 
     await user.save();

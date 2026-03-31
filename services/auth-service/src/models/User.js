@@ -43,6 +43,11 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: null
+  },
+  medicalLicenseNumber: {
+    type: String,
+    default: null,
+    sparse: true
   }
 }, {
   timestamps: true
