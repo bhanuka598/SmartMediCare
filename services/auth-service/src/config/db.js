@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/auth', {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
       // These options are no longer needed in Mongoose 6+, but kept for compatibility
     });
     console.log(`MongoDB Connected: ${conn.connection.host}`);

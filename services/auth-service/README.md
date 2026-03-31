@@ -33,7 +33,7 @@ Authentication and authorization microservice for SmartMediCare.
 
 ```
 PORT=5002
-MONGO_URI=mongodb://localhost:27017/auth
+MONGO_URI=
 JWT_SECRET=your_secret_key
 ```
 

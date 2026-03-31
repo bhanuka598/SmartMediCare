@@ -11,12 +11,12 @@ const generateToken = (userId) => {
 // Register new user
 exports.register = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { username, email, password, role } = req.body;
 
     // Validate required fields
-    if (!email || !password || !role) {
+    if (!username || !email || !password || !role) {
       return res.status(400).json({ 
-        message: 'Please provide email, password, and role' 
+        message: 'Please provide email, username, password, and role' 
       });
     }
 
@@ -29,13 +29,19 @@ exports.register = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ 
+      $or: [{ username }, { email }] 
+    });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      if (existingUser.email === email) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+      return res.status(400).json({ message: 'Username already taken' });
     }
 
     // Create new user
     const user = new User({
+      username,
       email,
       password,
       role
@@ -51,6 +57,7 @@ exports.register = async (req, res) => {
       token,
       user: {
         id: user._id,
+        username: user.username,
         email: user.email,
         role: user.role,
         isVerified: user.isVerified
@@ -103,6 +110,7 @@ exports.login = async (req, res) => {
       token,
       user: {
         id: user._id,
+        username: user.username,
         email: user.email,
         role: user.role,
         isVerified: user.isVerified,
@@ -183,6 +191,7 @@ exports.verifyToken = async (req, res) => {
       valid: true,
       user: {
         id: user._id,
+        username: user.username,
         email: user.email,
         role: user.role,
         isVerified: user.isVerified
