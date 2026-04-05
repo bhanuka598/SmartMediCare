@@ -308,12 +308,6 @@ exports.sendAdminCode = async (req, res) => {
       // Still return the code in dev mode
     }
 
-    // Always log for development
-    console.log('\n=== ADMIN REGISTRATION CODE ===');
-    console.log('Email:', email);
-    console.log('Admin Code:', adminCode);
-    console.log('================================\n');
-
     res.status(200).json({ 
       message: 'Admin registration code sent to your email',
       devCode: adminCode 
@@ -370,12 +364,6 @@ exports.sendVerification = async (req, res) => {
       role,
       expiresAt: Date.now() + 10 * 60 * 1000
     });
-
-    // Always log to console for development
-    console.log('\n=== VERIFICATION CODE ===');
-    console.log('Email:', email);
-    console.log('Code:', code);
-    console.log('=========================\n');
 
     // Try to send email, but don't fail if it doesn't work
     try {
@@ -498,12 +486,6 @@ exports.forgotPassword = async (req, res) => {
     } catch (emailError) {
       console.log('Email sending failed:', emailError.message);
     }
-
-    // Always log for development
-    console.log('\n=== PASSWORD RESET CODE ===');
-    console.log('Email:', email);
-    console.log('Code:', code);
-    console.log('===========================\n');
 
     res.status(200).json({ 
       message: 'Password reset code sent to your email',
