@@ -106,12 +106,12 @@ exports.register = async (req, res) => {
 // Login user
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     // Validate required fields
-    if (!email || !password) {
+    if (!email || !password || !role) {
       return res.status(400).json({ 
-        message: 'Please provide email and password' 
+        message: 'Please provide email, password, and role' 
       });
     }
 
@@ -124,6 +124,13 @@ exports.login = async (req, res) => {
     // Check if user is active
     if (!user.isActive) {
       return res.status(401).json({ message: 'Account is deactivated' });
+    }
+
+    // Validate role matches registered role
+    if (user.role !== role) {
+      return res.status(403).json({ 
+        message: `This account is registered as a ${user.role}. Please select the correct role to login.` 
+      });
     }
 
     // Compare password

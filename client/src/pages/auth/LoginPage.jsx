@@ -19,18 +19,36 @@ export function LoginPage() {
   const [role, setRole] = useState('patient');
   const [isLoading, setIsLoading] = useState(false);
 
+  const [error, setError] = useState('');
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate API call
-    setTimeout(() => {
-      login(email, role);
+    try {
+      const response = await fetch('http://localhost:5002/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      login(data.token, data.user);
       navigate(`/${role}/dashboard`);
-    }, 1000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -110,6 +128,10 @@ export function LoginPage() {
                   required
                 />
               </div>
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>
+              )}
 
             </CardContent>
 
