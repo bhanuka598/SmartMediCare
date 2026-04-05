@@ -94,12 +94,12 @@ export function LoginPage() {
                   <label className="block text-sm font-medium text-slate-700">
                     Password
                   </label>
-                  <a
-                    href="#"
+                  <Link
+                    to="/forgot-password"
                     className="text-sm font-medium text-blue-600 hover:text-blue-500"
                   >
                     Forgot password?
-                  </a>
+                  </Link>
                 </div>
 
                 <Input

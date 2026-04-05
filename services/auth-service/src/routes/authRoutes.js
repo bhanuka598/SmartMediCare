@@ -11,6 +11,11 @@ router.post('/send-verification', authController.sendVerification);
 router.post('/verify-email', authController.verifyEmail);
 router.post('/send-admin-code', authController.sendAdminCode);
 
+// Password reset routes
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/verify-reset-code', authController.verifyResetCode);
+router.post('/reset-password', authController.resetPassword);
+
 // Protected routes
 router.get('/me', verifyToken, authController.getMe);
 router.post('/change-password', verifyToken, authController.changePassword);

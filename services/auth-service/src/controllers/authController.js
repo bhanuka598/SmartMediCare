@@ -438,3 +438,144 @@ exports.verifyEmail = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+// In-memory store for password reset codes
+const resetCodes = new Map();
+
+// Send password reset verification code
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'No account found with this email' });
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store code with 10 min expiry
+    resetCodes.set(email, {
+      code,
+      expiresAt: Date.now() + 10 * 60 * 1000
+    });
+
+    // Send email
+    try {
+      await transporter.sendMail({
+        from: `"SmartMediCare" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'SmartMediCare - Password Reset Code',
+        text: `Your password reset code is: ${code}\n\nThis code expires in 10 minutes.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Password Reset</h2>
+            <p>You requested to reset your password.</p>
+            <p>Your verification code is:</p>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;">
+              ${code}
+            </div>
+            <p style="color: #6b7280;">This code expires in 10 minutes.</p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+            <p style="font-size: 12px; color: #9ca3af;">If you didn't request this, please ignore this email.</p>
+          </div>
+        `
+      });
+      console.log('Password reset email sent to:', email);
+    } catch (emailError) {
+      console.log('Email sending failed:', emailError.message);
+    }
+
+    // Always log for development
+    console.log('\n=== PASSWORD RESET CODE ===');
+    console.log('Email:', email);
+    console.log('Code:', code);
+    console.log('===========================\n');
+
+    res.status(200).json({ 
+      message: 'Password reset code sent to your email',
+      devCode: code 
+    });
+  } catch (error) {
+    console.error('ForgotPassword error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Verify reset code
+exports.verifyResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ message: 'Email and code are required' });
+    }
+
+    const stored = resetCodes.get(email);
+
+    if (!stored) {
+      return res.status(400).json({ message: 'No reset code found. Please request a new one.' });
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      resetCodes.delete(email);
+      return res.status(400).json({ message: 'Reset code expired. Please request a new one.' });
+    }
+
+    if (stored.code !== code) {
+      return res.status(400).json({ message: 'Invalid reset code' });
+    }
+
+    // Mark as verified for password reset
+    stored.verified = true;
+
+    res.status(200).json({ message: 'Code verified successfully' });
+  } catch (error) {
+    console.error('VerifyResetCode error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Reset password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ message: 'Email, code, and new password are required' });
+    }
+
+    const stored = resetCodes.get(email);
+
+    if (!stored || !stored.verified) {
+      return res.status(400).json({ message: 'Invalid or expired reset code' });
+    }
+
+    if (stored.code !== code) {
+      return res.status(400).json({ message: 'Invalid reset code' });
+    }
+
+    // Find user and update password
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    // Clear reset code
+    resetCodes.delete(email);
+
+    res.status(200).json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('ResetPassword error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
