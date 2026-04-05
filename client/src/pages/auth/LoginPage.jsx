@@ -43,7 +43,7 @@ export function LoginPage() {
       }
 
       login(data.token, data.user);
-      navigate(`/${role}/dashboard`);
+      navigate(`/${data.user.role}/dashboard`);
     } catch (err) {
       setError(err.message);
     } finally {

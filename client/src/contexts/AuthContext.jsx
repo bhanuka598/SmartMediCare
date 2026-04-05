@@ -3,22 +3,24 @@ import React, { useState, createContext, useContext } from 'react';
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    // Check for stored token on initial load
+    const token = localStorage.getItem('token');
+    return null; // Will be populated by token verification if needed
+  });
   const [role, setRole] = useState(null);
 
-  const login = (email, selectedRole) => {
-    // Mock login implementation
-    setUser({
-      id: Math.random().toString(36).substr(2, 9),
-      name: email.split('@')[0].replace('.', ' '),
-      email,
-      avatar: `https://ui-avatars.com/api/?name=${email}&background=0D8ABC&color=fff`
-    });
-
-    setRole(selectedRole);
+  const login = (token, userData) => {
+    // Store token in localStorage
+    localStorage.setItem('token', token);
+    
+    // Set user from backend response
+    setUser(userData);
+    setRole(userData.role);
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
     setUser(null);
     setRole(null);
   };
