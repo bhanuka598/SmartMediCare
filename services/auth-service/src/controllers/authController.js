@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const transporter = require('../config/email');
+const { withRetry, isRetryableDBError, isRetryableEmailError } = require('../utils/retry');
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -44,10 +45,13 @@ exports.register = async (req, res) => {
       }
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ username }, { email }] 
-    });
+    // Check if user already exists (with retry)
+    const existingUser = await withRetry(
+      () => User.findOne({ 
+        $or: [{ username }, { email }] 
+      }),
+      { shouldRetry: isRetryableDBError }
+    );
     if (existingUser) {
       if (existingUser.email === email) {
         return res.status(400).json({ message: 'Email already registered' });
@@ -55,9 +59,12 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Username already taken' });
     }
 
-    // Check if medical license number is already registered (for doctors)
+    // Check if medical license number is already registered (for doctors) (with retry)
     if (role === 'doctor') {
-      const existingLicense = await User.findOne({ medicalLicenseNumber });
+      const existingLicense = await withRetry(
+        () => User.findOne({ medicalLicenseNumber }),
+        { shouldRetry: isRetryableDBError }
+      );
       if (existingLicense) {
         return res.status(400).json({ message: 'Medical license number already registered' });
       }
@@ -71,7 +78,7 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Create new user
+    // Create new user (with retry)
     const user = new User({
       username,
       email,
@@ -81,7 +88,7 @@ exports.register = async (req, res) => {
       isVerified: true
     });
 
-    await user.save();
+    await withRetry(() => user.save(), { shouldRetry: isRetryableDBError });
 
     // Generate token
     const token = generateToken(user._id);
@@ -115,8 +122,11 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Find user
-    const user = await User.findOne({ email });
+    // Find user (with retry)
+    const user = await withRetry(
+      () => User.findOne({ email }),
+      { shouldRetry: isRetryableDBError }
+    );
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -139,9 +149,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Update last login
+    // Update last login (with retry)
     user.lastLogin = new Date();
-    await user.save();
+    await withRetry(() => user.save(), { shouldRetry: isRetryableDBError });
 
     // Generate token
     const token = generateToken(user._id);
@@ -167,7 +177,11 @@ exports.login = async (req, res) => {
 // Get current user
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
+    // Get current user (with retry)
+    const user = await withRetry(
+      () => User.findById(req.userId).select('-password'),
+      { shouldRetry: isRetryableDBError }
+    );
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -243,10 +257,13 @@ exports.verifyToken = async (req, res) => {
   }
 };
 
-// Get all users (admin only)
+// Get all users (admin only) (with retry)
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await withRetry(
+      () => User.find().select('-password'),
+      { shouldRetry: isRetryableDBError }
+    );
     res.status(200).json({
       count: users.length,
       users
