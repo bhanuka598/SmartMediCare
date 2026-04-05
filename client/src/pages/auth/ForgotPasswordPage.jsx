@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Activity, CheckCircle, Mail, ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
@@ -11,9 +11,18 @@ import {
   CardHeader,
   CardTitle
 } from '../../components/shared/Card';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const { isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && userRole) {
+      navigate(`/${userRole}/dashboard`);
+    }
+  }, [isAuthenticated, userRole, authLoading, navigate]);
 
   // Step: 'email' -> 'verify' -> 'reset'
   const [step, setStep] = useState('email');

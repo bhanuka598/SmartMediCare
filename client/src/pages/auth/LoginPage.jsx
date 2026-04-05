@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Activity } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
@@ -18,11 +18,17 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('patient');
   const [isLoading, setIsLoading] = useState(false);
-
   const [error, setError] = useState('');
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && userRole) {
+      navigate(`/${userRole}/dashboard`);
+    }
+  }, [isAuthenticated, userRole, authLoading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

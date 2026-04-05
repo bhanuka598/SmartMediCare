@@ -1,20 +1,49 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    // Check for stored token on initial load
-    const token = localStorage.getItem('token');
-    return null; // Will be populated by token verification if needed
-  });
+  const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Verify token on app load
+  useEffect(() => {
+    const verifyToken = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5002/api/auth/verify-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.valid) {
+          setUser(data.user);
+          setRole(data.user.role);
+        } else {
+          localStorage.removeItem('token');
+        }
+      } catch (error) {
+        console.error('Token verification failed:', error);
+        localStorage.removeItem('token');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    verifyToken();
+  }, []);
 
   const login = (token, userData) => {
-    // Store token in localStorage
     localStorage.setItem('token', token);
-    
-    // Set user from backend response
     setUser(userData);
     setRole(userData.role);
   };
@@ -31,6 +60,7 @@ export function AuthProvider({ children }) {
         user,
         role,
         isAuthenticated: !!user,
+        isLoading,
         login,
         logout
       }}

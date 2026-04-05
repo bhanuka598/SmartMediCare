@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Activity, CheckCircle, Mail, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
@@ -16,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export function RegisterPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
 
   const initialRole = searchParams.get('role') || 'patient';
   const [role, setRole] = useState(
@@ -36,6 +36,13 @@ export function RegisterPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && userRole) {
+      navigate(`/${userRole}/dashboard`);
+    }
+  }, [isAuthenticated, userRole, authLoading, navigate]);
 
   // Password validation requirements
   const getPasswordRequirements = (pwd) => ({
