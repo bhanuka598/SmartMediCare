@@ -271,14 +271,41 @@ export function RegisterPage() {
                   </div>
                 </div>
 
-                <Input
-                  label="Verification Code"
-                  type="text"
-                  placeholder="Enter 6-digit code"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value)}
-                  required
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Verification Code</label>
+                  <div className="flex gap-2 justify-center">
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                      <input
+                        key={index}
+                        type="text"
+                        maxLength={1}
+                        value={verificationCode[index] || ''}
+                        onChange={(e) => {
+                          const digit = e.target.value.replace(/\D/g, '').slice(0, 1);
+                          const newCode = verificationCode.split('');
+                          newCode[index] = digit;
+                          setVerificationCode(newCode.join(''));
+                          // Auto-focus next input
+                          if (digit && index < 5) {
+                            const nextInput = document.getElementById(`otp-${index + 1}`);
+                            nextInput?.focus();
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          // Handle backspace to go to previous input
+                          if (e.key === 'Backspace' && !verificationCode[index] && index > 0) {
+                            const prevInput = document.getElementById(`otp-${index - 1}`);
+                            prevInput?.focus();
+                          }
+                        }}
+                        id={`otp-${index}`}
+                        className="w-12 h-14 text-center text-2xl font-semibold border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                        placeholder="•"
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 text-center">Enter the 6-digit code sent to your email</p>
+                </div>
 
                 {error && (
                   <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>
