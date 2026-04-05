@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Activity, CheckCircle, Mail, ArrowLeft } from 'lucide-react';
+import { Activity, CheckCircle, Mail, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import {
@@ -35,6 +35,30 @@ export function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Password validation requirements
+  const getPasswordRequirements = (pwd) => ({
+    minLength: pwd.length >= 8,
+    hasUppercase: /[A-Z]/.test(pwd),
+    hasLowercase: /[a-z]/.test(pwd),
+    hasNumber: /\d/.test(pwd),
+    hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
+  });
+
+  const passwordReqs = getPasswordRequirements(password);
+  const allRequirementsMet = Object.values(passwordReqs).every(Boolean);
+
+  // Password strength calculation
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return { score: 0, label: 'None', color: 'bg-gray-200' };
+    const met = Object.values(getPasswordRequirements(pwd)).filter(Boolean).length;
+    if (met <= 2) return { score: met, label: 'Weak', color: 'bg-red-500' };
+    if (met <= 4) return { score: met, label: 'Medium', color: 'bg-yellow-500' };
+    return { score: met, label: 'Strong', color: 'bg-green-500' };
+  };
+
+  const passwordStrength = getPasswordStrength(password);
 
   // Step 1: Send verification code
   const handleSendVerification = async (e) => {
@@ -144,6 +168,10 @@ export function RegisterPage() {
       payload.medicalLicenseNumber = medicalLicenseNumber;
     }
 
+    if (role === 'admin') {
+      payload.adminCode = adminCode;
+    }
+
     try {
       const response = await fetch('http://localhost:5002/api/auth/register', {
         method: 'POST',
@@ -157,8 +185,38 @@ export function RegisterPage() {
         throw new Error(data.message || 'Registration failed');
       }
 
-      login(data.token, data.user);
-      navigate(`/${role}/dashboard`);
+      // Show success message and redirect to login
+      setMessage('Registration successful! Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Request admin registration code
+  const handleRequestAdminCode = async () => {
+    setIsLoading(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const response = await fetch('http://localhost:5002/api/auth/send-admin-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send admin code');
+      }
+
+      setMessage('Admin registration code sent to your email!');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -352,15 +410,72 @@ export function RegisterPage() {
                   required
                 />
 
-                <Input
-                  label="Password"
-                  type="password"
-                  placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  helperText="Must be at least 8 characters."
-                />
+                {/* Password with strength indicator */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Password</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Create a password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+
+                  {/* Password Strength Meter */}
+                  {password && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${passwordStrength.color}`}
+                            style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-medium ${
+                          passwordStrength.label === 'Weak' ? 'text-red-600' :
+                          passwordStrength.label === 'Medium' ? 'text-yellow-600' :
+                          passwordStrength.label === 'Strong' ? 'text-green-600' : 'text-slate-400'
+                        }`}>
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+
+                      {/* Requirements Checklist */}
+                      <div className="grid grid-cols-1 gap-1.5 text-xs">
+                        <div className={`flex items-center gap-1.5 ${passwordReqs.minLength ? 'text-green-600' : 'text-slate-500'}`}>
+                          {passwordReqs.minLength ? <CheckCircle size={12} /> : <span className="w-3 h-3 rounded-full border border-slate-300" />}
+                          At least 8 characters
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passwordReqs.hasUppercase ? 'text-green-600' : 'text-slate-500'}`}>
+                          {passwordReqs.hasUppercase ? <CheckCircle size={12} /> : <span className="w-3 h-3 rounded-full border border-slate-300" />}
+                          One uppercase letter (A-Z)
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passwordReqs.hasLowercase ? 'text-green-600' : 'text-slate-500'}`}>
+                          {passwordReqs.hasLowercase ? <CheckCircle size={12} /> : <span className="w-3 h-3 rounded-full border border-slate-300" />}
+                          One lowercase letter (a-z)
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passwordReqs.hasNumber ? 'text-green-600' : 'text-slate-500'}`}>
+                          {passwordReqs.hasNumber ? <CheckCircle size={12} /> : <span className="w-3 h-3 rounded-full border border-slate-300" />}
+                          One number (0-9)
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passwordReqs.hasSpecial ? 'text-green-600' : 'text-slate-500'}`}>
+                          {passwordReqs.hasSpecial ? <CheckCircle size={12} /> : <span className="w-3 h-3 rounded-full border border-slate-300" />}
+                          One special character (!@#$...)
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {role === 'doctor' && (
                   <Input
@@ -375,15 +490,60 @@ export function RegisterPage() {
                 )}
 
                 {role === 'admin' && (
-                  <Input
-                    label="Admin Registration Code"
-                    type="password"
-                    placeholder="Enter admin code"
-                    value={adminCode}
-                    onChange={(e) => setAdminCode(e.target.value)}
-                    required
-                    helperText="Contact system owner for access code."
-                  />
+                  <div className="space-y-3 p-3 bg-amber-50 rounded-md border border-amber-200">
+                    <div className="flex items-center gap-2 text-amber-700">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <span className="text-sm font-medium">Admin Access Required</span>
+                    </div>
+                    <p className="text-xs text-amber-600">
+                      You need an admin registration code to create an administrator account.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRequestAdminCode}
+                      disabled={isLoading}
+                      className="w-full py-2 px-4 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {isLoading ? 'Sending...' : 'Request Admin Code'}
+                    </button>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-amber-800">Admin Registration Code</label>
+                      <div className="flex gap-2 justify-center">
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+                          <input
+                            key={index}
+                            type="text"
+                            maxLength={1}
+                            value={adminCode[index] || ''}
+                            onChange={(e) => {
+                              const char = e.target.value.slice(0, 1).toUpperCase();
+                              const newCode = adminCode.split('');
+                              newCode[index] = char;
+                              setAdminCode(newCode.join(''));
+                              // Auto-focus next input
+                              if (char && index < 7) {
+                                const nextInput = document.getElementById(`admin-otp-${index + 1}`);
+                                nextInput?.focus();
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              // Handle backspace to go to previous input
+                              if (e.key === 'Backspace' && !adminCode[index] && index > 0) {
+                                const prevInput = document.getElementById(`admin-otp-${index - 1}`);
+                                prevInput?.focus();
+                              }
+                            }}
+                            id={`admin-otp-${index}`}
+                            className="w-10 h-12 text-center text-lg font-semibold border-2 border-amber-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all bg-white"
+                            placeholder="•"
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-amber-600 text-center">Click 'Request Admin Code' above to receive via email</p>
+                    </div>
+                  </div>
                 )}
 
                 {error && (

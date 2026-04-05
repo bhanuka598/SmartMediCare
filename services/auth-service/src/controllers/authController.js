@@ -12,7 +12,7 @@ const generateToken = (userId) => {
 // Register new user
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, role, medicalLicenseNumber } = req.body;
+    const { username, email, password, role, medicalLicenseNumber, adminCode } = req.body;
 
     // Validate required fields
     if (!username || !email || !password || !role) {
@@ -34,6 +34,14 @@ exports.register = async (req, res) => {
       return res.status(400).json({ 
         message: 'Medical license number is required for doctor registration' 
       });
+    }
+
+    // Validate admin registration code for admin role
+    if (role === 'admin') {
+      const validation = validateAdminCode(email, adminCode);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message });
+      }
     }
 
     // Check if user already exists
@@ -244,6 +252,92 @@ exports.getAllUsers = async (req, res) => {
 
 // In-memory store for verification codes (use Redis in production)
 const verificationCodes = new Map();
+
+// In-memory store for admin registration codes
+const adminCodes = new Map();
+
+// Send admin registration code
+exports.sendAdminCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Generate admin code
+    const adminCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    
+    // Store code with 30 min expiry
+    adminCodes.set(email, {
+      code: adminCode,
+      expiresAt: Date.now() + 30 * 60 * 1000
+    });
+
+    // Send email with admin code
+    try {
+      await transporter.sendMail({
+        from: `"SmartMediCare" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'SmartMediCare - Admin Registration Code',
+        text: `Your admin registration code is: ${adminCode}\n\nThis code expires in 30 minutes.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Admin Registration</h2>
+            <p>You have requested to register as an administrator.</p>
+            <p>Your admin registration code is:</p>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 4px; margin: 20px 0;">
+              ${adminCode}
+            </div>
+            <p style="color: #6b7280;">This code expires in 30 minutes.</p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+            <p style="font-size: 12px; color: #9ca3af;">If you didn't request this, please ignore this email.</p>
+          </div>
+        `
+      });
+      console.log('Admin code email sent to:', email);
+    } catch (emailError) {
+      console.log('Email sending failed:', emailError.message);
+      // Still return the code in dev mode
+    }
+
+    // Always log for development
+    console.log('\n=== ADMIN REGISTRATION CODE ===');
+    console.log('Email:', email);
+    console.log('Admin Code:', adminCode);
+    console.log('================================\n');
+
+    res.status(200).json({ 
+      message: 'Admin registration code sent to your email',
+      devCode: adminCode 
+    });
+  } catch (error) {
+    console.error('SendAdminCode error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Validate admin code during registration
+const validateAdminCode = (email, code) => {
+  const stored = adminCodes.get(email);
+  
+  if (!stored) {
+    return { valid: false, message: 'No admin code found. Please request a new one.' };
+  }
+
+  if (Date.now() > stored.expiresAt) {
+    adminCodes.delete(email);
+    return { valid: false, message: 'Admin code expired. Please request a new one.' };
+  }
+
+  if (stored.code !== code) {
+    return { valid: false, message: 'Invalid admin registration code' };
+  }
+
+  // Valid - delete after use
+  adminCodes.delete(email);
+  return { valid: true };
+};
 
 // Send verification code
 exports.sendVerification = async (req, res) => {
