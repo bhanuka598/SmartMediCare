@@ -173,7 +173,7 @@ export function TransactionsPage() {
           <Button onClick={fetchTransactions} disabled={isLoading} variant="outline">
             Refresh
           </Button>
-          <Button onClick={handleExport} variant="outline">
+          <Button onClick={handleExport} className="bg-blue-600 hover:bg-blue-700 text-white border-0">
             <Download size={18} className="mr-2" />
             Export CSV
           </Button>
