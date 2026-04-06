@@ -1,5 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 
+const API_URL = 'http://localhost:5000';
+
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
@@ -17,7 +19,7 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const response = await fetch('http://localhost:5002/api/auth/verify-token', {
+        const response = await fetch(`${API_URL}/api/auth/verify-token`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
