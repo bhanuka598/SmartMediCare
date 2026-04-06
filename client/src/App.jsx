@@ -6,6 +6,7 @@ import { FeaturesPage } from './pages/FeaturesPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
 // Patient Pages
@@ -21,6 +22,9 @@ import { DoctorAvailabilityPage } from './pages/doctor/AvailabilityPage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/DashboardPage';
+import { UsersPage } from './pages/admin/UsersPage';
+import { VerifyDoctorsPage } from './pages/admin/VerifyDoctorsPage';
+import { TransactionsPage } from './pages/admin/TransactionsPage';
 
 // Placeholder Component
 const PlaceholderPage = ({ title }) => (
@@ -45,6 +49,7 @@ export function App() {
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Patient Routes */}
@@ -100,15 +105,15 @@ export function App() {
             />
             <Route
               path="/admin/users"
-              element={<PlaceholderPage title="User Management" />}
+              element={<UsersPage />}
             />
             <Route
               path="/admin/verify-doctors"
-              element={<PlaceholderPage title="Verify Doctors" />}
+              element={<VerifyDoctorsPage />}
             />
             <Route
               path="/admin/transactions"
-              element={<PlaceholderPage title="Transactions" />}
+              element={<TransactionsPage />}
             />
           </Route>
 

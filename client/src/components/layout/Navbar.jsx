@@ -68,7 +68,7 @@ export function Navbar() {
 
                 <div className="flex flex-col items-end">
                   <span className="text-sm font-medium text-slate-900">
-                    {user?.name}
+                    {user?.username || 'User'}
                   </span>
                   <span className="text-xs text-slate-500 capitalize">
                     {role}
@@ -79,7 +79,7 @@ export function Navbar() {
                   {user?.avatar ? (
                     <img
                       src={user.avatar}
-                      alt={user.name}
+                      alt={user.username}
                       className="h-full w-full object-cover"
                     />
                   ) : (

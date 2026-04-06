@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Activity, CheckCircle, Mail, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Activity, CheckCircle, Mail, ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import {
@@ -13,29 +13,9 @@ import {
 } from '../../components/shared/Card';
 import { useAuth } from '../../contexts/AuthContext';
 
-export function RegisterPage() {
-  const [searchParams] = useSearchParams();
+export function ForgotPasswordPage() {
   const navigate = useNavigate();
-  const { login, isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
-
-  const initialRole = searchParams.get('role') || 'patient';
-  const [role, setRole] = useState(
-    ['doctor', 'admin'].includes(initialRole) ? initialRole : 'patient'
-  );
-
-  // Step: 'email' -> 'verify' -> 'form'
-  const [step, setStep] = useState('email');
-
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [medicalLicenseNumber, setMedicalLicenseNumber] = useState('');
-  const [adminCode, setAdminCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const { isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
 
   // Redirect if already logged in
   useEffect(() => {
@@ -43,6 +23,19 @@ export function RegisterPage() {
       navigate(`/${userRole}/dashboard`);
     }
   }, [isAuthenticated, userRole, authLoading, navigate]);
+
+  // Step: 'email' -> 'verify' -> 'reset'
+  const [step, setStep] = useState('email');
+
+  const [email, setEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Password validation requirements
   const getPasswordRequirements = (pwd) => ({
@@ -53,7 +46,7 @@ export function RegisterPage() {
     hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
   });
 
-  const passwordReqs = getPasswordRequirements(password);
+  const passwordReqs = getPasswordRequirements(newPassword);
   const allRequirementsMet = Object.values(passwordReqs).every(Boolean);
 
   // Password strength calculation
@@ -65,7 +58,7 @@ export function RegisterPage() {
     return { score: met, label: 'Strong', color: 'bg-green-500' };
   };
 
-  const passwordStrength = getPasswordStrength(password);
+  const passwordStrength = getPasswordStrength(newPassword);
 
   // Step 1: Send verification code
   const handleSendVerification = async (e) => {
@@ -87,10 +80,10 @@ export function RegisterPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/send-verification', {
+      const response = await fetch('http://localhost:5002/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role })
+        body: JSON.stringify({ email })
       });
 
       const data = await response.json();
@@ -122,7 +115,7 @@ export function RegisterPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-email', {
+      const response = await fetch('http://localhost:5002/api/auth/verify-reset-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: verificationCode })
@@ -134,7 +127,7 @@ export function RegisterPage() {
         throw new Error(data.message || 'Invalid verification code');
       }
 
-      setStep('form');
+      setStep('reset');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -149,10 +142,10 @@ export function RegisterPage() {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/send-verification', {
+      const response = await fetch('http://localhost:5002/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role })
+        body: JSON.stringify({ email })
       });
 
       const data = await response.json();
@@ -169,37 +162,39 @@ export function RegisterPage() {
     }
   };
 
-  // Step 3: Complete registration
-  const handleSubmit = async (e) => {
+  // Step 3: Reset password
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setMessage('');
 
-    const payload = { username, email, password, role };
-
-    if (role === 'doctor') {
-      payload.medicalLicenseNumber = medicalLicenseNumber;
+    if (!allRequirementsMet) {
+      setError('Password does not meet all requirements');
+      setIsLoading(false);
+      return;
     }
 
-    if (role === 'admin') {
-      payload.adminCode = adminCode;
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch('http://localhost:5002/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ email, code: verificationCode, newPassword })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.message || 'Failed to reset password');
       }
 
-      // Show success message and redirect to login
-      setMessage('Registration successful! Redirecting to login...');
+      setMessage('Password reset successful! Redirecting to login...');
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -210,36 +205,9 @@ export function RegisterPage() {
     }
   };
 
-  // Request admin registration code
-  const handleRequestAdminCode = async () => {
-    setIsLoading(true);
-    setError('');
-    setMessage('');
-
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/send-admin-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send admin code');
-      }
-
-      setMessage('Admin registration code sent to your email!');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const goBack = () => {
     if (step === 'verify') setStep('email');
-    if (step === 'form') setStep('verify');
+    if (step === 'reset') setStep('verify');
   };
 
   return (
@@ -268,14 +236,14 @@ export function RegisterPage() {
               </button>
             )}
             <CardTitle className="text-2xl">
-              {step === 'email' && 'Verify your email'}
-              {step === 'verify' && 'Enter verification code'}
-              {step === 'form' && 'Complete registration'}
+              {step === 'email' && 'Forgot Password'}
+              {step === 'verify' && 'Verify Email'}
+              {step === 'reset' && 'Reset Password'}
             </CardTitle>
             <CardDescription>
               {step === 'email' && 'Enter your email to receive a verification code'}
               {step === 'verify' && `We sent a code to ${email}`}
-              {step === 'form' && 'Fill in your details to create your account'}
+              {step === 'reset' && 'Create a new password for your account'}
             </CardDescription>
           </CardHeader>
 
@@ -283,22 +251,10 @@ export function RegisterPage() {
           {step === 'email' && (
             <form onSubmit={handleSendVerification}>
               <CardContent className="space-y-4">
-                {/* Role Selector */}
-                <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-lg">
-                  {['patient', 'doctor', 'admin'].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={`py-1.5 text-sm font-medium rounded-md capitalize transition-all ${
-                        role === r
-                          ? 'bg-white text-slate-900 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      {r === 'admin' ? 'Admin' : r}
-                    </button>
-                  ))}
+                <div className="flex justify-center py-4">
+                  <div className="bg-blue-50 p-4 rounded-full">
+                    <Mail className="h-8 w-8 text-blue-600" />
+                  </div>
                 </div>
 
                 <Input
@@ -323,7 +279,7 @@ export function RegisterPage() {
                   Send verification code
                 </Button>
                 <div className="text-center text-sm text-slate-500">
-                  Already have an account?{' '}
+                  Remember your password?{' '}
                   <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
                     Sign in
                   </Link>
@@ -356,20 +312,18 @@ export function RegisterPage() {
                           const newCode = verificationCode.split('');
                           newCode[index] = digit;
                           setVerificationCode(newCode.join(''));
-                          // Auto-focus next input
                           if (digit && index < 5) {
-                            const nextInput = document.getElementById(`otp-${index + 1}`);
+                            const nextInput = document.getElementById(`forgot-otp-${index + 1}`);
                             nextInput?.focus();
                           }
                         }}
                         onKeyDown={(e) => {
-                          // Handle backspace to go to previous input
                           if (e.key === 'Backspace' && !verificationCode[index] && index > 0) {
-                            const prevInput = document.getElementById(`otp-${index - 1}`);
+                            const prevInput = document.getElementById(`forgot-otp-${index - 1}`);
                             prevInput?.focus();
                           }
                         }}
-                        id={`otp-${index}`}
+                        id={`forgot-otp-${index}`}
                         className="w-12 h-14 text-center text-2xl font-semibold border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
                         placeholder="•"
                       />
@@ -405,33 +359,30 @@ export function RegisterPage() {
             </form>
           )}
 
-          {/* Step 3: Registration Form */}
-          {step === 'form' && (
-            <form onSubmit={handleSubmit}>
+          {/* Step 3: Reset Password */}
+          {step === 'reset' && (
+            <form onSubmit={handleResetPassword}>
               <CardContent className="space-y-4">
+                <div className="flex justify-center py-4">
+                  <div className="bg-blue-50 p-4 rounded-full">
+                    <Lock className="h-8 w-8 text-blue-600" />
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2 p-3 bg-green-50 rounded-md text-green-700">
                   <CheckCircle size={18} />
                   <span className="text-sm font-medium">{email} verified</span>
                 </div>
 
-                <Input
-                  label="Full Name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-
-                {/* Password with strength indicator */}
+                {/* New Password with strength indicator */}
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Password</label>
+                  <label className="text-sm font-medium text-slate-700">New Password</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Create a password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Create a new password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
                       required
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
                     />
@@ -445,7 +396,7 @@ export function RegisterPage() {
                   </div>
 
                   {/* Password Strength Meter */}
-                  {password && (
+                  {newPassword && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -490,83 +441,51 @@ export function RegisterPage() {
                   )}
                 </div>
 
-                {role === 'doctor' && (
-                  <Input
-                    label="Medical License Number"
-                    type="text"
-                    placeholder="e.g. MD123456"
-                    value={medicalLicenseNumber}
-                    onChange={(e) => setMedicalLicenseNumber(e.target.value)}
-                    required
-                    helperText="Required for doctor registration."
-                  />
-                )}
-
-                {role === 'admin' && (
-                  <div className="space-y-3 p-3 bg-amber-50 rounded-md border border-amber-200">
-                    <div className="flex items-center gap-2 text-amber-700">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                      <span className="text-sm font-medium">Admin Access Required</span>
-                    </div>
-                    <p className="text-xs text-amber-600">
-                      You need an admin registration code to create an administrator account.
-                    </p>
+                {/* Confirm Password */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Confirm Password</label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="Confirm your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 ${
+                        confirmPassword && newPassword !== confirmPassword
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                          : 'border-slate-300'
+                      }`}
+                    />
                     <button
                       type="button"
-                      onClick={handleRequestAdminCode}
-                      disabled={isLoading}
-                      className="w-full py-2 px-4 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      {isLoading ? 'Sending...' : 'Request Admin Code'}
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-amber-800">Admin Registration Code</label>
-                      <div className="flex gap-2 justify-center">
-                        {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
-                          <input
-                            key={index}
-                            type="text"
-                            maxLength={1}
-                            value={adminCode[index] || ''}
-                            onChange={(e) => {
-                              const char = e.target.value.slice(0, 1).toUpperCase();
-                              const newCode = adminCode.split('');
-                              newCode[index] = char;
-                              setAdminCode(newCode.join(''));
-                              // Auto-focus next input
-                              if (char && index < 7) {
-                                const nextInput = document.getElementById(`admin-otp-${index + 1}`);
-                                nextInput?.focus();
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              // Handle backspace to go to previous input
-                              if (e.key === 'Backspace' && !adminCode[index] && index > 0) {
-                                const prevInput = document.getElementById(`admin-otp-${index - 1}`);
-                                prevInput?.focus();
-                              }
-                            }}
-                            id={`admin-otp-${index}`}
-                            className="w-10 h-12 text-center text-lg font-semibold border-2 border-amber-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all bg-white"
-                            placeholder="•"
-                          />
-                        ))}
-                      </div>
-                      <p className="text-xs text-amber-600 text-center">Click 'Request Admin Code' above to receive via email</p>
-                    </div>
                   </div>
-                )}
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-xs text-red-600">Passwords do not match</p>
+                  )}
+                </div>
 
                 {error && (
                   <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>
                 )}
+                {message && (
+                  <div className="text-sm text-green-600 bg-green-50 p-3 rounded-md">{message}</div>
+                )}
               </CardContent>
 
               <CardFooter className="flex flex-col space-y-4">
-                <Button type="submit" fullWidth isLoading={isLoading}>
-                  Create account
+                <Button
+                  type="submit"
+                  fullWidth
+                  isLoading={isLoading}
+                  disabled={!allRequirementsMet || newPassword !== confirmPassword}
+                >
+                  Reset Password
                 </Button>
               </CardFooter>
             </form>
