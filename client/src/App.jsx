@@ -22,6 +22,7 @@ import { DoctorAvailabilityPage } from './pages/doctor/AvailabilityPage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/DashboardPage';
+import { UsersPage } from './pages/admin/UsersPage';
 
 // Placeholder Component
 const PlaceholderPage = ({ title }) => (
@@ -102,7 +103,7 @@ export function App() {
             />
             <Route
               path="/admin/users"
-              element={<PlaceholderPage title="User Management" />}
+              element={<UsersPage />}
             />
             <Route
               path="/admin/verify-doctors"
