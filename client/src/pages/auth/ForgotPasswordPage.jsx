@@ -73,6 +73,12 @@ export function ForgotPasswordPage() {
       return;
     }
 
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address with @');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:5002/api/auth/forgot-password', {
         method: 'POST',

@@ -80,6 +80,12 @@ export function RegisterPage() {
       return;
     }
 
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address with @');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:5000/api/auth/send-verification', {
         method: 'POST',

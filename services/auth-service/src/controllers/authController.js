@@ -22,6 +22,13 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Validate email format (must contain @)
+    if (!email.includes('@')) {
+      return res.status(400).json({
+        message: 'Please enter a valid email address with @'
+      });
+    }
+
     // Validate role
     const validRoles = ['patient', 'doctor', 'admin'];
     if (!validRoles.includes(role)) {
@@ -366,6 +373,13 @@ exports.sendVerification = async (req, res) => {
       return res.status(400).json({ message: 'Email and role are required' });
     }
 
+    // Validate email format (must contain @)
+    if (!email.includes('@')) {
+      return res.status(400).json({
+        message: 'Please enter a valid email address with @'
+      });
+    }
+
     // Check if email already registered
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -461,6 +475,13 @@ exports.forgotPassword = async (req, res) => {
 
     if (!email) {
       return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Validate email format (must contain @)
+    if (!email.includes('@')) {
+      return res.status(400).json({
+        message: 'Please enter a valid email address with @'
+      });
     }
 
     // Check if user exists
