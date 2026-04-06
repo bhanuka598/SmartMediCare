@@ -188,7 +188,7 @@ export function TransactionsPage() {
               <div>
                 <p className="text-sm font-medium text-slate-500">Total Revenue</p>
                 <h3 className="text-2xl font-bold text-slate-900">
-                  ${stats.totalRevenue.toLocaleString()}
+                  LKR{stats.totalRevenue.toLocaleString()}
                 </h3>
               </div>
               <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
