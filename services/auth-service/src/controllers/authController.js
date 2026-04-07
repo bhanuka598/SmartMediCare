@@ -4,8 +4,13 @@ const transporter = require('../config/email');
 const { withRetry, isRetryableDBError, isRetryableEmailError } = require('../utils/retry');
 
 // Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || 'secret', {
+const generateToken = (user) => {
+  return jwt.sign({
+    id: user._id,
+    role: user.role,
+    email: user.email,
+    username: user.username
+  }, process.env.JWT_SECRET || 'secret', {
     expiresIn: '7d'
   });
 };
@@ -98,7 +103,7 @@ exports.register = async (req, res) => {
     await withRetry(() => user.save(), { shouldRetry: isRetryableDBError });
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -161,7 +166,7 @@ exports.login = async (req, res) => {
     await withRetry(() => user.save(), { shouldRetry: isRetryableDBError });
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user);
 
     res.status(200).json({
       message: 'Login successful',

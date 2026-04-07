@@ -116,7 +116,14 @@ app.use('/api/doctors', createProxyMiddleware({
 app.use('/api/patients', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.patient,
-  pathRewrite: { '^/api/patients': '/api/patients' }
+  pathRewrite: { '^/api/patients': '/api/patient' }
+}));
+
+// Patient Service (singular)
+app.use('/api/patient', createProxyMiddleware({
+  ...proxyOptions,
+  target: SERVICES.patient,
+  pathRewrite: { '^/api/patient': '/api/patient' }
 }));
 
 // Payment Service
