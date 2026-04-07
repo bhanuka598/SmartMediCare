@@ -127,7 +127,7 @@ const searchDoctors = async (specialty, filters = {}) => {
       };
     }
 
-    let doctorList = doctors.data || [];
+    let doctorList = doctors.doctors || [];
 
     if (filters.available === "true") {
       const availableDoctors = [];
