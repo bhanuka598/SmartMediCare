@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, adminMiddleware } = require('../middleware/authMiddleware');
 const patientController = require('../controllers/patientController');
+const symptomController = require('../controllers/symptomController');
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -23,6 +24,9 @@ router.get('/prescriptions/:prescriptionId', patientController.getPrescriptionBy
 router.get('/history', patientController.getMedicalHistory);
 router.post('/history', patientController.addMedicalHistory);
 router.delete('/history/:entryId', patientController.deleteMedicalHistory);
+
+// Symptom Checker routes
+router.post('/symptoms/analyze', symptomController.analyzeSymptoms);
 
 // Dashboard stats
 router.get('/dashboard/stats', patientController.getDashboardStats);
