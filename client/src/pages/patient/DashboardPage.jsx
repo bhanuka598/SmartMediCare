@@ -29,27 +29,85 @@ export function PatientDashboardPage() {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
 
-  // Fetch dashboard data
+  // Fetch with timeout, retry logic, and error handling
+  const fetchWithRetry = useCallback(async (url, options = {}, retries = 3, timeout = 10000) => {
+    const fetchWithTimeout = async () => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (error) {
+        clearTimeout(id);
+        throw error;
+      }
+    };
+
+    let lastError;
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetchWithTimeout();
+        
+        // Check for HTTP errors
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        lastError = error;
+        
+        // Don't retry on 4xx errors (client errors)
+        if (error.message?.includes('HTTP 4')) {
+          throw error;
+        }
+        
+        // Exponential backoff before retry
+        if (i < retries - 1) {
+          const delay = Math.min(1000 * Math.pow(2, i), 5000);
+          console.log(`Retry ${i + 1}/${retries} for ${url} after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    throw new Error(`Failed after ${retries} attempts: ${lastError.message}`);
+  }, []);
+
+  // Fetch dashboard data with comprehensive error handling
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch dashboard stats
-      const statsRes = await fetch(`${API_URL}/api/patient/dashboard/stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
+      // Fetch dashboard stats with retry
+      try {
+        const statsData = await fetchWithRetry(
+          `${API_URL}/api/patient/dashboard/stats`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+          3,
+          10000
+        );
         if (statsData.success) setStats(statsData.stats);
+      } catch (err) {
+        console.error('Stats fetch failed:', err.message);
+        setStats({ totalAppointments: 0, completedAppointments: 0, totalReports: 0, totalPrescriptions: 0 });
       }
 
-      // Fetch upcoming appointments
-      const apptRes = await fetch(`${API_URL}/api/appointments/my-appointments?status=upcoming&limit=1`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (apptRes.ok) {
-        const apptData = await apptRes.json();
+      // Fetch upcoming appointments with retry
+      try {
+        const apptData = await fetchWithRetry(
+          `${API_URL}/api/appointments/my-appointments?status=upcoming&limit=1`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+          3,
+          15000
+        );
         if (apptData.success && apptData.appointments?.length > 0) {
           const appt = apptData.appointments[0];
           setUpcomingAppointment({
@@ -63,28 +121,46 @@ export function PatientDashboardPage() {
             doctorImage: appt.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'
           });
         }
+      } catch (err) {
+        console.error('Appointments fetch failed:', err.message);
+        setUpcomingAppointment(null);
       }
 
-      // Fetch recent medical reports
-      const reportsRes = await fetch(`${API_URL}/api/patient/reports?limit=2`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (reportsRes.ok) {
-        const reportsData = await reportsRes.json();
+      // Fetch recent medical reports with retry
+      try {
+        const reportsData = await fetchWithRetry(
+          `${API_URL}/api/patient/reports?limit=2`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+          3,
+          10000
+        );
         if (reportsData.success) {
           setRecentRecords(reportsData.reports?.slice(0, 2) || []);
         }
+      } catch (err) {
+        console.error('Reports fetch failed:', err.message);
+        setRecentRecords([]);
       }
 
-      // Fetch profile for health summary
-      const profileRes = await fetch(`${API_URL}/api/patient/profile`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
+      // Fetch profile for health summary with retry
+      try {
+        const profileData = await fetchWithRetry(
+          `${API_URL}/api/patient/profile`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+          3,
+          10000
+        );
         if (profileData.success) {
           setProfile(profileData.patient);
         }
+      } catch (err) {
+        console.error('Profile fetch failed:', err.message);
+        setProfile(null);
+      }
+
+      // Show partial error if all requests failed
+      if (!stats && !upcomingAppointment && recentRecords.length === 0 && !profile) {
+        setError('Unable to load dashboard data. Please check your connection and try again.');
       }
     } catch (err) {
       console.error('Dashboard error:', err);
@@ -92,7 +168,7 @@ export function PatientDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, fetchWithRetry]);
 
   useEffect(() => {
     if (token) fetchDashboardData();
@@ -199,8 +275,16 @@ export function PatientDashboardPage() {
 
       {/* Error message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          {error}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 flex items-center justify-between">
+          <span>{error}</span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchDashboardData}
+            className="border-red-300 text-red-700 hover:bg-red-100"
+          >
+            Retry
+          </Button>
         </div>
       )}
 
