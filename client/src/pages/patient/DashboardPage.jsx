@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
   Calendar,
   FileText,
   Search,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -17,20 +18,112 @@ import {
 import { Button } from '../../components/shared/Button';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 
-export function PatientDashboardPage() {
-  const { user } = useAuth();
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  const upcomingAppointment = {
-    id: '1',
-    doctorName: 'Dr. Sarah Jenkins',
-    specialty: 'Cardiologist',
-    date: 'Today, Oct 24',
-    time: '14:30 PM',
-    status: 'upcoming',
-    type: 'video',
-    doctorImage:
-      'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'
+export function PatientDashboardPage() {
+  const { user, token } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+  const [upcomingAppointment, setUpcomingAppointment] = useState(null);
+  const [recentRecords, setRecentRecords] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Fetch dashboard data
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch dashboard stats
+      const statsRes = await fetch(`${API_URL}/api/patient/dashboard/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        if (statsData.success) setStats(statsData.stats);
+      }
+
+      // Fetch upcoming appointments
+      const apptRes = await fetch(`${API_URL}/api/appointments/my-appointments?status=upcoming&limit=1`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (apptRes.ok) {
+        const apptData = await apptRes.json();
+        if (apptData.success && apptData.appointments?.length > 0) {
+          const appt = apptData.appointments[0];
+          setUpcomingAppointment({
+            id: appt._id,
+            doctorName: appt.doctorName || `Dr. ${appt.doctorId?.slice(-4) || 'Unknown'}`,
+            specialty: appt.specialty || 'General',
+            date: new Date(appt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            time: appt.time,
+            status: appt.status,
+            type: appt.type || 'video',
+            doctorImage: appt.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'
+          });
+        }
+      }
+
+      // Fetch recent medical reports
+      const reportsRes = await fetch(`${API_URL}/api/patient/reports?limit=2`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (reportsRes.ok) {
+        const reportsData = await reportsRes.json();
+        if (reportsData.success) {
+          setRecentRecords(reportsData.reports?.slice(0, 2) || []);
+        }
+      }
+
+      // Fetch profile for health summary
+      const profileRes = await fetch(`${API_URL}/api/patient/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        if (profileData.success) {
+          setProfile(profileData.patient);
+        }
+      }
+    } catch (err) {
+      console.error('Dashboard error:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token) fetchDashboardData();
+  }, [token, fetchDashboardData]);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
+
+  const getCategoryColor = (category) => {
+    const colors = {
+      lab: 'bg-blue-100 text-blue-700',
+      xray: 'bg-purple-100 text-purple-700',
+      mri: 'bg-indigo-100 text-indigo-700',
+      ct: 'bg-pink-100 text-pink-700',
+      prescription: 'bg-green-100 text-green-700',
+      discharge: 'bg-orange-100 text-orange-700',
+      other: 'bg-slate-100 text-slate-700'
+    };
+    return colors[category] || colors.other;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -104,6 +197,43 @@ export function PatientDashboardPage() {
         </Link>
       </div>
 
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-blue-50 border-blue-100">
+            <CardContent className="p-4">
+              <p className="text-sm text-blue-600">Total Appointments</p>
+              <p className="text-2xl font-bold text-blue-700">{stats.totalAppointments || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-green-50 border-green-100">
+            <CardContent className="p-4">
+              <p className="text-sm text-green-600">Completed</p>
+              <p className="text-2xl font-bold text-green-700">{stats.completedAppointments || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-purple-50 border-purple-100">
+            <CardContent className="p-4">
+              <p className="text-sm text-purple-600">Reports</p>
+              <p className="text-2xl font-bold text-purple-700">{stats.totalReports || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-amber-50 border-amber-100">
+            <CardContent className="p-4">
+              <p className="text-sm text-amber-600">Prescriptions</p>
+              <p className="text-2xl font-bold text-amber-700">{stats.totalPrescriptions || 0}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid md:grid-cols-3 gap-6">
         {/* Main Content Area */}
         <div className="md:col-span-2 space-y-6">
@@ -119,10 +249,22 @@ export function PatientDashboardPage() {
             </CardHeader>
 
             <CardContent>
-              <AppointmentCard
-                appointment={upcomingAppointment}
-                onJoin={() => console.log('Joining call')}
-              />
+              {upcomingAppointment ? (
+                <AppointmentCard
+                  appointment={upcomingAppointment}
+                  onJoin={() => console.log('Joining call')}
+                />
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                  <p>No upcoming appointments</p>
+                  <Link to="/patient/doctors">
+                    <Button variant="outline" size="sm" className="mt-3">
+                      Book Now
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -132,33 +274,47 @@ export function PatientDashboardPage() {
             </CardHeader>
 
             <CardContent>
-              <div className="space-y-4">
-                {[1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 rounded-lg border border-slate-100 bg-slate-50"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-500">
-                        <FileText size={20} />
-                      </div>
-
-                      <div>
-                        <p className="font-medium text-slate-900">
-                          Blood Test Results
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          Added Oct 12, 2026 • Dr. Jenkins
-                        </p>
-                      </div>
-                    </div>
-
-                    <Button variant="ghost" size="sm">
-                      View
+              {recentRecords.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                  <p>No recent records</p>
+                  <Link to="/patient/records">
+                    <Button variant="outline" size="sm" className="mt-3">
+                      Upload Report
                     </Button>
-                  </div>
-                ))}
-              </div>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentRecords.map((record) => (
+                    <div
+                      key={record._id}
+                      className="flex items-center justify-between p-4 rounded-lg border border-slate-100 bg-slate-50"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-500">
+                          <FileText size={20} />
+                        </div>
+
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {record.title}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            Added {formatDate(record.uploadedAt)} • {record.category}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Link to="/patient/records">
+                        <Button variant="ghost" size="sm">
+                          View
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -174,16 +330,16 @@ export function PatientDashboardPage() {
               </div>
 
               <h3 className="text-xl font-bold mb-2">Not feeling well?</h3>
-              <p className="text-blue-100 text-sm mb-6">
+              <p className="text-slate-600 text-sm mb-6">
                 Use our AI symptom checker to get preliminary insights and find
                 the right specialist.
               </p>
 
               <Link to="/patient/symptom-checker">
                 <Button
-                  variant="secondary"
+                  variant="primary"
                   fullWidth
-                  className="bg-white text-blue-600 hover:bg-blue-50"
+                  className="bg-blue-600 text-white hover:bg-blue-700 border-0"
                 >
                   Check Symptoms
                 </Button>
@@ -199,22 +355,24 @@ export function PatientDashboardPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
                 <span className="text-slate-600">Blood Type</span>
-                <span className="font-medium text-slate-900">O+</span>
+                <span className="font-medium text-slate-900">{profile?.bloodType || 'N/A'}</span>
               </div>
 
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
                 <span className="text-slate-600">Height</span>
-                <span className="font-medium text-slate-900">175 cm</span>
+                <span className="font-medium text-slate-900">{profile?.height ? `${profile.height} cm` : 'N/A'}</span>
               </div>
 
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
                 <span className="text-slate-600">Weight</span>
-                <span className="font-medium text-slate-900">72 kg</span>
+                <span className="font-medium text-slate-900">{profile?.weight ? `${profile.weight} kg` : 'N/A'}</span>
               </div>
 
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-600">Allergies</span>
-                <span className="font-medium text-slate-900">Penicillin</span>
+                <span className="font-medium text-slate-900">
+                  {profile?.allergies?.length > 0 ? profile.allergies.join(', ') : 'None'}
+                </span>
               </div>
             </CardContent>
           </Card>
