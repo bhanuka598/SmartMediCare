@@ -23,7 +23,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/', require('./routes/patientRoutes'));
 
-const PORT = process.env.PORT || 5006;
+const PORT = process.env.PORT || 5005;
 app.listen(PORT, () => {
   console.log(`Patient Service running on port ${PORT}`);
 });
