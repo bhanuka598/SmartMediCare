@@ -3,7 +3,9 @@ const {
   searchDoctorsBySpecialtyFromDoctorService
 } = require("../services/doctorService");
 const {
-  createTelemedicineSession
+  createTelemedicineSession,
+  getTelemedicineSession,
+  endTelemedicineSession
 } = require("../services/telemedicineService");
 
 const isPastDateTime = (dateStr, timeStr) => {
@@ -374,6 +376,9 @@ exports.completeAppointment = async (req, res) => {
     appointment.status = "COMPLETED";
     await appointment.save();
 
+    // End telemedicine session if exists
+    await endTelemedicineSession(appointment._id.toString());
+
     return res.status(200).json({
       success: true,
       message: "Appointment marked as completed",
@@ -383,6 +388,47 @@ exports.completeAppointment = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error completing appointment",
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get appointment with telemedicine session details
+ * @route GET /api/appointments/:id/details
+ */
+exports.getAppointmentWithSession = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found"
+      });
+    }
+
+    // Fetch telemedicine session details
+    const sessionResponse = await getTelemedicineSession(
+      appointment._id.toString()
+    );
+
+    const responseData = {
+      ...appointment.toObject(),
+      telemedicineSession:
+        sessionResponse.success && sessionResponse.data
+          ? sessionResponse.data
+          : null
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: responseData
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching appointment details",
       error: error.message
     });
   }

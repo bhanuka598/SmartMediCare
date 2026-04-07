@@ -83,6 +83,11 @@ services:
       - PORT=5004
       - MONGO_URI=mongodb://appointment-db:27017/appointmentdb
       - JWT_SECRET=secret
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - PATIENT_SERVICE_URL=http://patient-service:5002
+      - DOCTOR_SERVICE_URL=http://doctor-service:5003
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:5007
+      - INTERNAL_SERVICE_SECRET=secret
     depends_on:
       - appointment-db
     networks:
