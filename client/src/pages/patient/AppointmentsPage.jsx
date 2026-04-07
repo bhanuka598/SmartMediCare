@@ -1,61 +1,262 @@
-import React, { useState } from 'react';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar as CalendarIcon, Loader2, AlertCircle } from 'lucide-react';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
+import { Button } from '../../components/shared/Button';
 
-const MOCK_APPOINTMENTS = [
-  {
-    id: '1',
-    doctorName: 'Dr. Sarah Jenkins',
-    specialty: 'Cardiologist',
-    date: 'Oct 24, 2026',
-    time: '14:30 PM',
-    status: 'upcoming',
-    type: 'video',
-    doctorImage:
-      'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'
-  },
-  {
-    id: '2',
-    doctorName: 'Dr. Michael Chen',
-    specialty: 'Dermatologist',
-    date: 'Oct 28, 2026',
-    time: '09:00 AM',
-    status: 'upcoming',
-    type: 'in-person',
-    doctorImage:
-      'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=150&h=150'
-  },
-  {
-    id: '3',
-    doctorName: 'Dr. Emily Rodriguez',
-    specialty: 'Pediatrician',
-    date: 'Sep 15, 2026',
-    time: '11:00 AM',
-    status: 'completed',
-    type: 'video',
-    doctorImage:
-      'https://images.unsplash.com/photo-1594824432258-f9a12b1cc169?auto=format&fit=crop&q=80&w=150&h=150'
-  },
-  {
-    id: '4',
-    doctorName: 'Dr. James Wilson',
-    specialty: 'Neurologist',
-    date: 'Aug 02, 2026',
-    time: '15:45 PM',
-    status: 'cancelled',
-    type: 'in-person',
-    doctorImage:
-      'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=150&h=150'
-  }
-];
+const API_URL = 'http://localhost:5000';
+
+// Helper to get auth token
+const getToken = () => localStorage.getItem('token');
+
+// Helper to get current user from localStorage
+const getCurrentUser = () => {
+  const userStr = localStorage.getItem('user');
+  return userStr ? JSON.parse(userStr) : null;
+};
+
+// Map backend status to frontend status
+const mapStatus = (backendStatus) => {
+  const statusMap = {
+    'PENDING': 'upcoming',
+    'CONFIRMED': 'upcoming',
+    'COMPLETED': 'completed',
+    'CANCELLED': 'cancelled',
+    'REJECTED': 'cancelled'
+  };
+  return statusMap[backendStatus] || backendStatus.toLowerCase();
+};
+
+// Format date for display
+const formatDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
+};
+
+// Format time for display
+const formatTime = (timeStr) => {
+  // Assuming timeStr is in "HH:MM" format
+  const [hours, minutes] = timeStr.split(':');
+  const date = new Date();
+  date.setHours(parseInt(hours), parseInt(minutes));
+  return date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+  });
+};
 
 export function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState('upcoming');
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(null);
+  const [joinLoading, setJoinLoading] = useState(null);
 
-  const filteredAppointments = MOCK_APPOINTMENTS.filter((app) => {
-    if (activeTab === 'upcoming') return app.status === 'upcoming';
-    return app.status === 'completed' || app.status === 'cancelled';
+  const currentUser = getCurrentUser();
+  const patientId = currentUser?.id || currentUser?._id;
+
+  // Fetch appointments
+  const fetchAppointments = async () => {
+    if (!patientId) {
+      setError('Please log in to view appointments');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token = getToken();
+      const response = await fetch(
+        `${API_URL}/api/appointments/patient/${patientId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch appointments');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAppointments(data.data || []);
+      } else {
+        throw new Error(data.message || 'Failed to fetch appointments');
+      }
+    } catch (err) {
+      console.error('Error fetching appointments:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [patientId]);
+
+  // Cancel appointment
+  const handleCancel = async (appointmentId) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) {
+      return;
+    }
+
+    try {
+      setCancelLoading(appointmentId);
+      const token = getToken();
+
+      const response = await fetch(
+        `${API_URL}/api/appointments/${appointmentId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel appointment');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh appointments
+        fetchAppointments();
+      } else {
+        throw new Error(data.message || 'Failed to cancel appointment');
+      }
+    } catch (err) {
+      console.error('Error cancelling appointment:', err);
+      alert(err.message);
+    } finally {
+      setCancelLoading(null);
+    }
+  };
+
+  // Join video call - get session details and open meeting link
+  const handleJoin = async (appointmentId) => {
+    try {
+      setJoinLoading(appointmentId);
+      const token = getToken();
+
+      const response = await fetch(
+        `${API_URL}/api/appointments/${appointmentId}/details`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to get session details');
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        // Check if there's a meeting link in the appointment
+        const meetingLink = data.data.meetingLink || 
+          data.data.telemedicineSession?.meetingLink;
+        
+        if (meetingLink) {
+          window.open(meetingLink, '_blank');
+        } else {
+          alert('No meeting link available. Please contact support.');
+        }
+      } else {
+        throw new Error(data.message || 'Failed to get session details');
+      }
+    } catch (err) {
+      console.error('Error joining session:', err);
+      alert(err.message);
+    } finally {
+      setJoinLoading(null);
+    }
+  };
+
+  // View notes (placeholder)
+  const handleViewNotes = (appointmentId) => {
+    console.log('View notes', appointmentId);
+    // TODO: Implement notes view
+    alert('Notes feature coming soon!');
+  };
+
+  // Transform backend appointment to frontend format
+  const transformAppointment = (app) => ({
+    id: app._id,
+    doctorName: app.doctorName || 'Unknown Doctor',
+    specialty: app.specialty,
+    date: formatDate(app.appointmentDate),
+    time: formatTime(app.appointmentTime),
+    status: mapStatus(app.status),
+    type: app.meetingLink || app.telemedicineSession ? 'video' : 'in-person',
+    doctorImage: app.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
+    meetingLink: app.meetingLink,
+    originalData: app // Keep original data for reference
   });
+
+  const filteredAppointments = appointments
+    .map(transformAppointment)
+    .filter((app) => {
+      if (activeTab === 'upcoming') return app.status === 'upcoming';
+      return app.status === 'completed' || app.status === 'cancelled';
+    });
+
+  // Render loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-3 text-slate-600">Loading appointments...</span>
+      </div>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Appointments</h1>
+          <p className="text-slate-500">
+            Manage your upcoming and past consultations.
+          </p>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+            <div>
+              <h3 className="font-medium text-red-900">Error loading appointments</h3>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          </div>
+          <Button 
+            onClick={fetchAppointments} 
+            variant="outline" 
+            className="mt-4"
+          >
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -77,6 +278,11 @@ export function AppointmentsPage() {
             }`}
           >
             Upcoming
+            {activeTab === 'upcoming' && filteredAppointments.length > 0 && (
+              <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">
+                {filteredAppointments.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -98,9 +304,11 @@ export function AppointmentsPage() {
             <AppointmentCard
               key={appointment.id}
               appointment={appointment}
-              onJoin={(id) => console.log('Join', id)}
-              onCancel={(id) => console.log('Cancel', id)}
-              onViewNotes={(id) => console.log('View notes', id)}
+              onJoin={(id) => handleJoin(id)}
+              onCancel={(id) => handleCancel(id)}
+              onViewNotes={(id) => handleViewNotes(id)}
+              isJoinLoading={joinLoading === appointment.id}
+              isCancelLoading={cancelLoading === appointment.id}
             />
           ))
         ) : (
@@ -114,6 +322,14 @@ export function AppointmentsPage() {
             <p className="text-slate-500">
               You don't have any {activeTab} appointments at the moment.
             </p>
+            {activeTab === 'upcoming' && (
+              <Button 
+                className="mt-4" 
+                onClick={() => window.location.href = '/patient/doctors'}
+              >
+                Book an Appointment
+              </Button>
+            )}
           </div>
         )}
       </div>

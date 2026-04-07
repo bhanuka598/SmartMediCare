@@ -28,12 +28,12 @@ services:
       - telemedicine-service
     environment:
       - PORT=5000
-      - AUTH_SERVICE_URL=http://auth-service:5001
-      - PATIENT_SERVICE_URL=http://patient-service:5002
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:5001
+      - AUTH_SERVICE_URL=http://auth-service:5002
       - DOCTOR_SERVICE_URL=http://doctor-service:5003
-      - APPOINTMENT_SERVICE_URL=http://appointment-service:5004
-      - PAYMENT_SERVICE_URL=http://payment-service:5005
-      - NOTIFICATION_SERVICE_URL=http://notification-service:5006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5004
+      - PATIENT_SERVICE_URL=http://patient-service:5005
+      - PAYMENT_SERVICE_URL=http://payment-service:5006
       - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:5007
     networks:
       - smartcare-net
