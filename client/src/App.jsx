@@ -15,6 +15,7 @@ import { DoctorsPage } from './pages/patient/DoctorsPage';
 import { AppointmentsPage } from './pages/patient/AppointmentsPage';
 import { MedicalRecordsPage } from './pages/patient/MedicalRecordsPage';
 import { SymptomCheckerPage } from './pages/patient/SymptomCheckerPage';
+import { PatientProfilePage } from './pages/patient/PatientProfilePage';
 
 // Doctor Pages
 import { DoctorDashboardPage } from './pages/doctor/DashboardPage';
@@ -70,6 +71,10 @@ export function App() {
             <Route
               path="/patient/symptom-checker"
               element={<SymptomCheckerPage />}
+            />
+            <Route
+              path="/patient/profile"
+              element={<PatientProfilePage />}
             />
           </Route>
 
