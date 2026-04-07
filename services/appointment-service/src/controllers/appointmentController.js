@@ -1,36 +1,14 @@
-const Appointment = require("../models/Appointment");
-const {
-  searchDoctorsBySpecialtyFromDoctorService
-} = require("../services/doctorService");
-const {
-  createTelemedicineSession,
-  getTelemedicineSession,
-  endTelemedicineSession
-} = require("../services/telemedicineService");
-
-const isPastDateTime = (dateStr, timeStr) => {
-  const appointmentDateTime = new Date(`${dateStr}T${timeStr}`);
-  return appointmentDateTime < new Date();
-};
+const appointmentService = require("../services/appointmentService");
+const realtimeTrackingService = require("../services/realtimeTrackingService");
 
 exports.searchDoctorsBySpecialty = async (req, res) => {
   try {
-    const { specialty } = req.query;
+    const { specialty, available, date, minRating, maxFee } = req.query;
 
-    if (!specialty) {
-      return res.status(400).json({
-        success: false,
-        message: "Specialty is required"
-      });
-    }
+    const filters = { available, date, minRating, maxFee };
+    const result = await appointmentService.searchDoctors(specialty, filters);
 
-    const doctors = await searchDoctorsBySpecialtyFromDoctorService(specialty);
-
-    return res.status(200).json({
-      success: true,
-      message: "Doctors fetched successfully",
-      data: doctors.data || []
-    });
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -42,67 +20,17 @@ exports.searchDoctorsBySpecialty = async (req, res) => {
 
 exports.createAppointment = async (req, res) => {
   try {
-    const {
-      patientId,
-      patientName,
-      doctorId,
-      doctorName,
-      specialty,
-      appointmentDate,
-      appointmentTime,
-      reason
-    } = req.body;
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const result = await appointmentService.createAppointment(req.body, userId);
 
-    if (
-      !patientId ||
-      !doctorId ||
-      !specialty ||
-      !appointmentDate ||
-      !appointmentTime
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "patientId, doctorId, specialty, appointmentDate and appointmentTime are required"
+    if (result.success && result.data) {
+      realtimeTrackingService.broadcastToUser(result.data.patientId, "new-appointment", {
+        appointmentId: result.data._id,
+        message: "New appointment created"
       });
     }
 
-    if (isPastDateTime(appointmentDate, appointmentTime)) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot book an appointment in the past"
-      });
-    }
-
-    const existingSlot = await Appointment.findOne({
-      doctorId,
-      appointmentDate,
-      appointmentTime
-    });
-
-    if (existingSlot) {
-      return res.status(400).json({
-        success: false,
-        message: "This doctor already has an appointment at this time slot"
-      });
-    }
-
-    const appointment = await Appointment.create({
-      patientId,
-      patientName,
-      doctorId,
-      doctorName,
-      specialty,
-      appointmentDate,
-      appointmentTime,
-      reason
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Appointment booked successfully",
-      data: appointment
-    });
+    return res.status(result.success ? 201 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -112,21 +40,32 @@ exports.createAppointment = async (req, res) => {
   }
 };
 
+exports.getAllAppointments = async (req, res) => {
+  try {
+    const { status, limit, page, sortBy, dateFrom, dateTo, type, paymentStatus } = req.query;
+
+    const query = { status, type, paymentStatus, dateFrom, dateTo };
+    const options = {
+      limit: limit || 50,
+      skip: page ? (parseInt(page) - 1) * parseInt(limit || 50) : 0
+    };
+
+    const result = await appointmentService.getAppointments(query, options);
+
+    return res.status(result.success ? 200 : 500).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching appointments",
+      error: error.message
+    });
+  }
+};
+
 exports.getAppointmentById = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
-
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found"
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: appointment
-    });
+    const result = await appointmentService.getAppointmentById(req.params.id);
+    return res.status(result.success ? 200 : 404).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -138,16 +77,23 @@ exports.getAppointmentById = async (req, res) => {
 
 exports.getPatientAppointments = async (req, res) => {
   try {
-    const { patientId } = req.params;
+    const patientId = req.params.patientId || req.userId || req.user?.id;
 
-    const appointments = await Appointment.find({ patientId }).sort({
-      createdAt: -1
-    });
+    if (!patientId) {
+      return res.status(400).json({
+        success: false,
+        message: "Patient ID is required"
+      });
+    }
 
-    return res.status(200).json({
-      success: true,
-      data: appointments
-    });
+    const { status, limit, sortBy, dateFrom, dateTo } = req.query;
+
+    const query = { patientId, status, sortBy, dateFrom, dateTo };
+    const options = { limit: limit || 50 };
+
+    const result = await appointmentService.getAppointments(query, options);
+
+    return res.status(result.success ? 200 : 500).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -161,14 +107,14 @@ exports.getDoctorAppointments = async (req, res) => {
   try {
     const { doctorId } = req.params;
 
-    const appointments = await Appointment.find({ doctorId }).sort({
-      createdAt: -1
-    });
+    const { status, limit, sortBy, dateFrom, dateTo } = req.query;
 
-    return res.status(200).json({
-      success: true,
-      data: appointments
-    });
+    const query = { doctorId, status, sortBy, dateFrom, dateTo };
+    const options = { limit: limit || 50 };
+
+    const result = await appointmentService.getAppointments(query, options);
+
+    return res.status(result.success ? 200 : 500).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -180,60 +126,19 @@ exports.getDoctorAppointments = async (req, res) => {
 
 exports.updateAppointment = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { appointmentDate, appointmentTime, reason } = req.body;
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const result = await appointmentService.updateAppointment(req.params.id, req.body, userId);
 
-    const appointment = await Appointment.findById(id);
-
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found"
-      });
+    if (result.success && result.data) {
+      await realtimeTrackingService.notifyStatusChange(
+        result.data._id.toString(),
+        result.data.status,
+        result.data.status,
+        userId
+      );
     }
 
-    if (appointment.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: "Only pending appointments can be updated"
-      });
-    }
-
-    const newDate = appointmentDate || appointment.appointmentDate;
-    const newTime = appointmentTime || appointment.appointmentTime;
-
-    if (isPastDateTime(newDate, newTime)) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot set an appointment in the past"
-      });
-    }
-
-    const conflictingSlot = await Appointment.findOne({
-      _id: { $ne: id },
-      doctorId: appointment.doctorId,
-      appointmentDate: newDate,
-      appointmentTime: newTime
-    });
-
-    if (conflictingSlot) {
-      return res.status(400).json({
-        success: false,
-        message: "Selected time slot is already booked"
-      });
-    }
-
-    appointment.appointmentDate = newDate;
-    appointment.appointmentTime = newTime;
-    if (reason !== undefined) appointment.reason = reason;
-
-    await appointment.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Appointment updated successfully",
-      data: appointment
-    });
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -245,30 +150,22 @@ exports.updateAppointment = async (req, res) => {
 
 exports.cancelAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const { reason } = req.body;
+    const cancelledBy = req.userRole === "doctor" ? "DOCTOR" : "PATIENT";
 
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found"
-      });
+    const result = await appointmentService.cancelAppointment(req.params.id, reason, cancelledBy, userId);
+
+    if (result.success && result.data) {
+      await realtimeTrackingService.notifyStatusChange(
+        result.data._id.toString(),
+        result.data.status,
+        "CANCELLED",
+        userId
+      );
     }
 
-    if (appointment.status === "COMPLETED") {
-      return res.status(400).json({
-        success: false,
-        message: "Completed appointment cannot be cancelled"
-      });
-    }
-
-    appointment.status = "CANCELLED";
-    await appointment.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Appointment cancelled successfully",
-      data: appointment
-    });
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -280,37 +177,24 @@ exports.cancelAppointment = async (req, res) => {
 
 exports.confirmAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const result = await appointmentService.confirmAppointment(req.params.id, userId);
 
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found"
-      });
+    if (result.success && result.data) {
+      await realtimeTrackingService.notifyStatusChange(
+        result.data._id.toString(),
+        "PENDING",
+        "CONFIRMED",
+        userId
+      );
+
+      realtimeTrackingService.updateQueueStatus(
+        result.data.doctorId,
+        result.data.appointmentDate
+      );
     }
 
-    if (appointment.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: "Only pending appointments can be confirmed"
-      });
-    }
-
-    appointment.status = "CONFIRMED";
-
-    const sessionResponse = await createTelemedicineSession(appointment);
-
-    if (sessionResponse.success && sessionResponse.data?.meetingLink) {
-      appointment.meetingLink = sessionResponse.data.meetingLink;
-    }
-
-    await appointment.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Appointment confirmed successfully",
-      data: appointment
-    });
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -322,30 +206,20 @@ exports.confirmAppointment = async (req, res) => {
 
 exports.rejectAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const { reason } = req.body;
+    const result = await appointmentService.rejectAppointment(req.params.id, reason, userId);
 
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found"
-      });
+    if (result.success && result.data) {
+      await realtimeTrackingService.notifyStatusChange(
+        result.data._id.toString(),
+        "PENDING",
+        "REJECTED",
+        userId
+      );
     }
 
-    if (appointment.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: "Only pending appointments can be rejected"
-      });
-    }
-
-    appointment.status = "REJECTED";
-    await appointment.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Appointment rejected successfully",
-      data: appointment
-    });
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -357,33 +231,20 @@ exports.rejectAppointment = async (req, res) => {
 
 exports.completeAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const { notes, prescription } = req.body;
+    const result = await appointmentService.completeAppointment(req.params.id, notes, prescription, userId);
 
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found"
-      });
+    if (result.success && result.data) {
+      await realtimeTrackingService.notifyStatusChange(
+        result.data._id.toString(),
+        result.data.status,
+        "COMPLETED",
+        userId
+      );
     }
 
-    if (appointment.status !== "CONFIRMED") {
-      return res.status(400).json({
-        success: false,
-        message: "Only confirmed appointments can be completed"
-      });
-    }
-
-    appointment.status = "COMPLETED";
-    await appointment.save();
-
-    // End telemedicine session if exists
-    await endTelemedicineSession(appointment._id.toString());
-
-    return res.status(200).json({
-      success: true,
-      message: "Appointment marked as completed",
-      data: appointment
-    });
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -393,28 +254,165 @@ exports.completeAppointment = async (req, res) => {
   }
 };
 
-/**
- * Get appointment with telemedicine session details
- * @route GET /api/appointments/:id/details
- */
-exports.getAppointmentWithSession = async (req, res) => {
+exports.markInProgress = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const result = await appointmentService.markInProgress(req.params.id, userId);
 
-    if (!appointment) {
-      return res.status(404).json({
+    if (result.success && result.data) {
+      await realtimeTrackingService.notifyStatusChange(
+        result.data._id.toString(),
+        "CONFIRMED",
+        "IN_PROGRESS",
+        userId
+      );
+
+      realtimeTrackingService.updateQueueStatus(
+        result.data.doctorId,
+        result.data.appointmentDate
+      );
+    }
+
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error marking appointment as in progress",
+      error: error.message
+    });
+  }
+};
+
+exports.markNoShow = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const result = await appointmentService.markNoShow(req.params.id, userId);
+
+    if (result.success && result.data) {
+      await realtimeTrackingService.notifyStatusChange(
+        result.data._id.toString(),
+        result.data.status,
+        "NO_SHOW",
+        userId
+      );
+    }
+
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error marking appointment as no-show",
+      error: error.message
+    });
+  }
+};
+
+exports.getAppointmentStatus = async (req, res) => {
+  try {
+    const result = await appointmentService.getAppointmentStatus(req.params.id);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching appointment status",
+      error: error.message
+    });
+  }
+};
+
+exports.rateAppointment = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const { rating, feedback } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
         success: false,
-        message: "Appointment not found"
+        message: "Rating must be between 1 and 5"
       });
     }
 
-    // Fetch telemedicine session details
-    const sessionResponse = await getTelemedicineSession(
-      appointment._id.toString()
-    );
+    const result = await appointmentService.rateAppointment(req.params.id, rating, feedback, userId);
+
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error submitting rating",
+      error: error.message
+    });
+  }
+};
+
+exports.getDoctorSchedule = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { date } = req.query;
+
+    const result = await appointmentService.getDoctorSchedule(doctorId, date);
+    return res.status(result.success ? 200 : 500).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching doctor schedule",
+      error: error.message
+    });
+  }
+};
+
+exports.getAvailableSlots = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date is required"
+      });
+    }
+
+    const result = await appointmentService.getAvailableSlots(doctorId, date);
+    return res.status(result.success ? 200 : 500).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching available slots",
+      error: error.message
+    });
+  }
+};
+
+exports.getAppointmentStatistics = async (req, res) => {
+  try {
+    const { doctorId, patientId, dateFrom, dateTo } = req.query;
+
+    const query = { doctorId, patientId, dateFrom, dateTo };
+    const result = await appointmentService.getAppointmentStatistics(query);
+
+    return res.status(result.success ? 200 : 500).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching appointment statistics",
+      error: error.message
+    });
+  }
+};
+
+exports.getAppointmentWithSession = async (req, res) => {
+  try {
+    const result = await appointmentService.getAppointmentById(req.params.id);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    const { getTelemedicineSession } = require("../services/telemedicineService");
+    const sessionResponse = await getTelemedicineSession(req.params.id);
 
     const responseData = {
-      ...appointment.toObject(),
+      ...result.data.toObject(),
       telemedicineSession:
         sessionResponse.success && sessionResponse.data
           ? sessionResponse.data

@@ -1,11 +1,12 @@
 require("dotenv").config();
-const app = require("./app");
+const { httpServer } = require("./app");
 const connectDB = require("./config/db");
 
 const PORT = process.env.PORT || 5001;
 
 connectDB();
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Appointment Service running on port ${PORT}`);
+  console.log(`WebSocket server ready for real-time updates`);
 });

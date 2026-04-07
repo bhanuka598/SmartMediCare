@@ -4,33 +4,100 @@
  */
 
 const axios = require("axios");
+const { generateServiceToken } = require("./authService");
 
 const PATIENT_SERVICE_URL =
-  process.env.PATIENT_SERVICE_URL || "http://localhost:5003";
+  process.env.PATIENT_SERVICE_URL || "http://localhost:5005";
+
+/**
+ * Get patient by ID from patient service
+ * @param {string} patientId - Patient ID
+ * @returns {Promise<Object>} - Patient data
+ */
+const getPatientById = async (patientId) => {
+  try {
+    const url = `${PATIENT_SERVICE_URL}/api/patients/${patientId}`;
+    const serviceToken = generateServiceToken();
+
+    const response = await axios.get(url, {
+      headers: {
+        "X-Service-Token": serviceToken,
+        "X-Service-Name": "appointment-service"
+      }
+    });
+
+    return {
+      success: true,
+      data: response.data.data || response.data
+    };
+  } catch (error) {
+    console.error("Patient service error:", error.message);
+    return {
+      success: false,
+      message: "Could not fetch patient data",
+      error: error.message
+    };
+  }
+};
 
 /**
  * Get patient profile by ID from patient service
  * @param {string} patientId - Patient ID
- * @param {string} token - JWT token (patient's token or service token)
  * @returns {Promise<Object>} - Patient profile data
  */
-const getPatientProfile = async (patientId, token) => {
+const getPatientProfile = async (patientId) => {
   try {
-    const response = await axios.get(
-      `${PATIENT_SERVICE_URL}/api/patients/profile`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
+    const url = `${PATIENT_SERVICE_URL}/api/patients/${patientId}/profile`;
+    const serviceToken = generateServiceToken();
+
+    const response = await axios.get(url, {
+      headers: {
+        "X-Service-Token": serviceToken,
+        "X-Service-Name": "appointment-service"
       }
-    );
-    return response.data;
+    });
+
+    return {
+      success: true,
+      data: response.data.data || response.data
+    };
   } catch (error) {
-    console.error("Patient service communication error:", error.message);
+    console.error("Patient profile fetch error:", error.message);
     return {
       success: false,
-      message: error.response?.data?.message || "Could not connect to patient-service"
+      message: "Could not fetch patient profile",
+      error: error.message
+    };
+  }
+};
+
+/**
+ * Get patient medical history from patient service
+ * @param {string} patientId - Patient ID
+ * @returns {Promise<Object>} - Medical history data
+ */
+const getPatientMedicalHistory = async (patientId) => {
+  try {
+    const url = `${PATIENT_SERVICE_URL}/api/patients/${patientId}/medical-history`;
+    const serviceToken = generateServiceToken();
+
+    const response = await axios.get(url, {
+      headers: {
+        "X-Service-Token": serviceToken,
+        "X-Service-Name": "appointment-service"
+      }
+    });
+
+    return {
+      success: true,
+      data: response.data.data || response.data
+    };
+  } catch (error) {
+    console.error("Medical history fetch error:", error.message);
+    return {
+      success: false,
+      message: "Could not fetch medical history",
+      error: error.message
     };
   }
 };
@@ -38,43 +105,45 @@ const getPatientProfile = async (patientId, token) => {
 /**
  * Validate if patient exists by checking with patient service
  * @param {string} patientId - Patient ID to validate
- * @param {string} serviceToken - Internal service token for authentication
  * @returns {Promise<Object>} - Validation result with patient data if exists
  */
-const validatePatientExists = async (patientId, serviceToken) => {
+const validatePatient = async (patientId) => {
   try {
-    // Use internal endpoint or patient profile endpoint
-    const response = await axios.get(
-      `${PATIENT_SERVICE_URL}/api/patients/profile`,
-      {
-        headers: {
-          Authorization: `Bearer ${serviceToken}`,
-          "Content-Type": "application/json",
-          "X-Service-Name": "appointment-service"
-        }
-      }
-    );
-
-    if (response.data && response.data.success) {
-      return {
-        success: true,
-        exists: true,
-        patient: response.data.data
-      };
-    }
-
+    const patient = await getPatientById(patientId);
     return {
-      success: false,
-      exists: false,
-      message: "Patient not found"
+      success: patient.success,
+      isValid: patient.success && patient.data,
+      data: patient.data || null
     };
   } catch (error) {
-    console.error("Patient validation error:", error.message);
     return {
       success: false,
-      exists: false,
-      message: error.response?.data?.message || "Could not validate patient"
+      isValid: false,
+      message: error.message
     };
+  }
+};
+
+/**
+ * Get patient name by ID
+ * @param {string} patientId - Patient ID
+ * @returns {Promise<string|null>} - Patient name or null if not found
+ */
+const getPatientNameById = async (patientId) => {
+  try {
+    const result = await validatePatient(patientId);
+    if (result.success && result.data) {
+      return (
+        result.data.name ||
+        result.data.fullName ||
+        result.data.username ||
+        null
+      );
+    }
+    return null;
+  } catch (error) {
+    console.error("Get patient name error:", error.message);
+    return null;
   }
 };
 
@@ -82,13 +151,13 @@ const validatePatientExists = async (patientId, serviceToken) => {
  * Sync patient data with appointment service
  * Called when patient profile is updated
  * @param {Object} patientData - Patient data to sync
- * @param {string} serviceToken - Internal service token
  * @returns {Promise<Object>} - Sync result
  */
-const syncPatientData = async (patientData, serviceToken) => {
+const syncPatientData = async (patientData) => {
   try {
+    const serviceToken = generateServiceToken();
     const response = await axios.post(
-      `${PATIENT_SERVICE_URL}/api/patients/sync`,
+      `${PATIENT_SERVICE_URL}/sync`,
       patientData,
       {
         headers: {
@@ -109,30 +178,6 @@ const syncPatientData = async (patientData, serviceToken) => {
 };
 
 /**
- * Get patient name by ID
- * @param {string} patientId - Patient ID
- * @param {string} token - Auth token
- * @returns {Promise<string|null>} - Patient name or null if not found
- */
-const getPatientNameById = async (patientId, token) => {
-  try {
-    const result = await validatePatientExists(patientId, token);
-    if (result.success && result.patient) {
-      return (
-        result.patient.name ||
-        result.patient.fullName ||
-        result.patient.username ||
-        null
-      );
-    }
-    return null;
-  } catch (error) {
-    console.error("Get patient name error:", error.message);
-    return null;
-  }
-};
-
-/**
  * Check if patient service is healthy
  * @returns {Promise<boolean>}
  */
@@ -148,10 +193,12 @@ const isPatientServiceHealthy = async () => {
 };
 
 module.exports = {
+  getPatientById,
   getPatientProfile,
-  validatePatientExists,
-  syncPatientData,
+  getPatientMedicalHistory,
+  validatePatient,
   getPatientNameById,
+  syncPatientData,
   isPatientServiceHealthy,
   PATIENT_SERVICE_URL
 };

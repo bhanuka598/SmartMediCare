@@ -130,7 +130,7 @@ app.use('/api/patient', createProxyMiddleware({
 app.use('/api/patients', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.patient,
-  pathRewrite: { '^/api/patients': '/api/patient' },
+  pathRewrite: { '^/api/patients': '' },
   onError: (err, req, res) => {
     console.error('Patient service proxy error:', err.message);
     res.status(500).json({ message: 'Patient service unavailable', error: err.message });

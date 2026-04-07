@@ -1,29 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Loader2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar as CalendarIcon, Loader2, AlertCircle, Activity } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { Button } from '../../components/shared/Button';
+import { useAuth } from '../../contexts/AuthContext';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = 'http://localhost:5001';
 
 // Helper to get auth token
 const getToken = () => localStorage.getItem('token');
-
-// Helper to get current user from localStorage
-const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user');
-  return userStr ? JSON.parse(userStr) : null;
-};
 
 // Map backend status to frontend status
 const mapStatus = (backendStatus) => {
   const statusMap = {
     'PENDING': 'upcoming',
     'CONFIRMED': 'upcoming',
+    'IN_PROGRESS': 'upcoming',
     'COMPLETED': 'completed',
     'CANCELLED': 'cancelled',
-    'REJECTED': 'cancelled'
+    'REJECTED': 'cancelled',
+    'NO_SHOW': 'cancelled'
   };
   return statusMap[backendStatus] || backendStatus.toLowerCase();
+};
+
+// Get status display label
+const getStatusLabel = (backendStatus) => {
+  const labels = {
+    'PENDING': 'Pending',
+    'CONFIRMED': 'Confirmed',
+    'IN_PROGRESS': 'In Progress',
+    'COMPLETED': 'Completed',
+    'CANCELLED': 'Cancelled',
+    'REJECTED': 'Rejected',
+    'NO_SHOW': 'No Show'
+  };
+  return labels[backendStatus] || backendStatus;
 };
 
 // Format date for display
@@ -56,9 +68,12 @@ export function AppointmentsPage() {
   const [error, setError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(null);
   const [joinLoading, setJoinLoading] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [trackingStatus, setTrackingStatus] = useState({});
+  const socketRef = useRef(null);
 
-  const currentUser = getCurrentUser();
-  const patientId = currentUser?.id || currentUser?._id;
+  const { user, isAuthenticated } = useAuth();
+  const patientId = user?.id || user?._id;
 
   // Fetch appointments
   const fetchAppointments = async () => {
@@ -73,8 +88,10 @@ export function AppointmentsPage() {
       setError(null);
 
       const token = getToken();
+      const statusParam = activeTab === 'upcoming' ? 'CONFIRMED,PENDING,IN_PROGRESS' : 'COMPLETED,CANCELLED,REJECTED,NO_SHOW';
+      
       const response = await fetch(
-        `${API_URL}/api/appointments/patient/${patientId}`,
+        `${API_URL}/api/appointments/my-appointments?sortBy=dateAsc`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -104,6 +121,72 @@ export function AppointmentsPage() {
 
   useEffect(() => {
     fetchAppointments();
+  }, [patientId, activeTab]);
+
+  // Setup WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!patientId) return;
+
+    const socket = io(API_URL, {
+      transports: ['websocket'],
+      auth: {
+        token: getToken()
+      }
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Connected to appointment service');
+      setSocketConnected(true);
+      
+      // Join as patient
+      socket.emit('join', {
+        userId: patientId,
+        role: 'patient'
+      });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from appointment service');
+      setSocketConnected(false);
+    });
+
+    socket.on('appointment-update', (data) => {
+      console.log('Appointment update received:', data);
+      // Refresh appointments when status changes
+      fetchAppointments();
+    });
+
+    socket.on('status-change', (data) => {
+      console.log('Status change received:', data);
+      setTrackingStatus(prev => ({
+        ...prev,
+        [data.appointmentId]: data
+      }));
+      fetchAppointments();
+    });
+
+    socket.on('queue-update', (data) => {
+      console.log('Queue update received:', data);
+      setTrackingStatus(prev => ({
+        ...prev,
+        [data.appointmentId]: data
+      }));
+    });
+
+    socket.on('reminder', (data) => {
+      console.log('Reminder received:', data);
+      // Could show a toast notification here
+    });
+
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [patientId]);
 
   // Cancel appointment
@@ -197,6 +280,41 @@ export function AppointmentsPage() {
     alert('Notes feature coming soon!');
   };
 
+  // Rate appointment
+  const handleRate = async (appointmentId, rating, feedback) => {
+    try {
+      const token = getToken();
+
+      const response = await fetch(
+        `${API_URL}/api/appointments/${appointmentId}/rate`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ rating, feedback })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to submit rating');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchAppointments();
+        alert('Thank you for your feedback!');
+      } else {
+        throw new Error(data.message || 'Failed to submit rating');
+      }
+    } catch (err) {
+      console.error('Error rating appointment:', err);
+      alert(err.message);
+    }
+  };
+
   // Transform backend appointment to frontend format
   const transformAppointment = (app) => ({
     id: app._id,
@@ -204,12 +322,32 @@ export function AppointmentsPage() {
     specialty: app.specialty,
     date: formatDate(app.appointmentDate),
     time: formatTime(app.appointmentTime),
+    endTime: app.endTime ? formatTime(app.endTime) : null,
     status: mapStatus(app.status),
-    type: app.meetingLink || app.telemedicineSession ? 'video' : 'in-person',
+    statusLabel: getStatusLabel(app.status),
+    rawStatus: app.status,
+    type: app.type === 'TELEMEDICINE' ? 'video' : 'in-person',
     doctorImage: app.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
     meetingLink: app.meetingLink,
+    queueNumber: app.queueNumber,
+    estimatedStartTime: app.estimatedStartTime,
+    duration: app.duration,
+    reason: app.reason,
+    symptoms: app.symptoms,
+    doctorNotes: app.doctorNotes,
+    cancellationReason: app.cancellationReason,
+    rescheduleCount: app.rescheduleCount,
+    rating: app.rating,
+    canRate: app.status === 'COMPLETED' && !app.rating?.score,
     originalData: app // Keep original data for reference
   });
+
+  // Start tracking an appointment for real-time updates
+  const startTracking = (appointmentId) => {
+    if (socketRef.current) {
+      socketRef.current.emit('track-appointment', appointmentId);
+    }
+  };
 
   const filteredAppointments = appointments
     .map(transformAppointment)
@@ -260,11 +398,23 @@ export function AppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">My Appointments</h1>
-        <p className="text-slate-500">
-          Manage your upcoming and past consultations.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Appointments</h1>
+          <p className="text-slate-500">
+            Manage your upcoming and past consultations.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+            socketConnected 
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-amber-100 text-amber-700'
+          }`}>
+            <Activity className="h-3.5 w-3.5" />
+            {socketConnected ? 'Live Updates' : 'Connecting...'}
+          </div>
+        </div>
       </div>
 
       <div className="border-b border-slate-200">
@@ -304,9 +454,12 @@ export function AppointmentsPage() {
             <AppointmentCard
               key={appointment.id}
               appointment={appointment}
+              trackingStatus={trackingStatus[appointment.id]}
               onJoin={(id) => handleJoin(id)}
               onCancel={(id) => handleCancel(id)}
               onViewNotes={(id) => handleViewNotes(id)}
+              onRate={(id, rating, feedback) => handleRate(id, rating, feedback)}
+              onTrack={() => startTracking(appointment.id)}
               isJoinLoading={joinLoading === appointment.id}
               isCancelLoading={cancelLoading === appointment.id}
             />
