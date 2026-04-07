@@ -7,6 +7,7 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
+  const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Verify token on app load
@@ -30,8 +31,10 @@ export function AuthProvider({ children }) {
         if (response.ok && data.valid) {
           setUser(data.user);
           setRole(data.user.role);
+          setToken(token);
         } else {
           localStorage.removeItem('token');
+          setToken(null);
         }
       } catch (error) {
         console.error('Token verification failed:', error);
@@ -44,14 +47,16 @@ export function AuthProvider({ children }) {
     verifyToken();
   }, []);
 
-  const login = (token, userData) => {
-    localStorage.setItem('token', token);
+  const login = (authToken, userData) => {
+    localStorage.setItem('token', authToken);
+    setToken(authToken);
     setUser(userData);
     setRole(userData.role);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    setToken(null);
     setUser(null);
     setRole(null);
   };
@@ -61,6 +66,7 @@ export function AuthProvider({ children }) {
       value={{
         user,
         role,
+        token,
         isAuthenticated: !!user,
         isLoading,
         login,

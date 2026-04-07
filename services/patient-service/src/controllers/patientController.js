@@ -126,10 +126,13 @@ exports.uploadReport = async (req, res) => {
     patient.medicalReports.push(newReport);
     await patient.save();
 
+    // Get the last added report (which now has _id)
+    const savedReport = patient.medicalReports[patient.medicalReports.length - 1];
+
     res.status(201).json({
       success: true,
       message: 'Report uploaded successfully',
-      report: newReport
+      report: savedReport
     });
   } catch (error) {
     console.error('Upload report error:', error);
