@@ -15,13 +15,13 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Routes
-app.use('/api/patient', require('./routes/patientRoutes'));
-
-// Health check
+// Health check (no auth required)
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'patient-service' });
 });
+
+// Routes
+app.use('/', require('./routes/patientRoutes'));
 
 const PORT = process.env.PORT || 5006;
 app.listen(PORT, () => {

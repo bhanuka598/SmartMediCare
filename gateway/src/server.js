@@ -112,18 +112,32 @@ app.use('/api/doctors', createProxyMiddleware({
   pathRewrite: { '^/api/doctors': '/api/doctors' }
 }));
 
-// Patient Service
-app.use('/api/patients', createProxyMiddleware({
-  ...proxyOptions,
-  target: SERVICES.patient,
-  pathRewrite: { '^/api/patients': '/api/patient' }
-}));
-
-// Patient Service (singular)
+// Patient Service (singular) - must come before plural
 app.use('/api/patient', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.patient,
-  pathRewrite: { '^/api/patient': '/api/patient' }
+  pathRewrite: { '^/api/patient': '' },
+  onError: (err, req, res) => {
+    console.error('Patient service proxy error:', err.message);
+    res.status(500).json({ message: 'Patient service unavailable', error: err.message });
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[Gateway -> Patient Service] ${req.method} ${req.path} -> ${proxyReq.path}`);
+  }
+}));
+
+// Patient Service (plural)
+app.use('/api/patients', createProxyMiddleware({
+  ...proxyOptions,
+  target: SERVICES.patient,
+  pathRewrite: { '^/api/patients': '/api/patient' },
+  onError: (err, req, res) => {
+    console.error('Patient service proxy error:', err.message);
+    res.status(500).json({ message: 'Patient service unavailable', error: err.message });
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[Gateway -> Patient Service] ${req.method} ${req.path} -> ${proxyReq.path}`);
+  }
 }));
 
 // Payment Service

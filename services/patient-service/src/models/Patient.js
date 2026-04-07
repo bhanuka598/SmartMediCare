@@ -206,21 +206,8 @@ const PatientSchema = new mongoose.Schema({
     time: String,
     status: String,
     type: String,
-    notes: String
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
+    relationship: String
+  }]
 }, { timestamps: true });
-
-PatientSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
 
 module.exports = mongoose.model('Patient', PatientSchema);
