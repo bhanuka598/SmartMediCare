@@ -1,27 +1,53 @@
 const axios = require("axios");
 const { generateServiceToken } = require("./authService");
+const { httpRequestWithRetry, CircuitBreaker, withCircuitBreaker } = require("../utils/failureHandler");
+
+// Circuit breaker for doctor service
+const doctorServiceBreaker = new CircuitBreaker("doctor-service", {
+  failureThreshold: 5,
+  resetTimeout: 30000
+});
+
+// Retry configuration for doctor service calls
+const DOCTOR_SERVICE_RETRY_CONFIG = {
+  maxRetries: 3,
+  retryDelay: 1000,
+  timeout: 5000,
+  backoffMultiplier: 2
+};
 
 const searchDoctorsBySpecialtyFromDoctorService = async (specialty) => {
-  try {
+  const operation = async () => {
     const url = `${process.env.DOCTOR_SERVICE_URL}/api/doctors/search`;
     const serviceToken = generateServiceToken();
     
-    const response = await axios.get(url, {
-      params: { specialty },
-      headers: {
-        "X-Service-Token": serviceToken,
-        "X-Service-Name": "appointment-service"
-      }
-    });
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: url,
+        params: { specialty },
+        headers: {
+          "X-Service-Token": serviceToken,
+          "X-Service-Name": "appointment-service"
+        }
+      },
+      DOCTOR_SERVICE_RETRY_CONFIG,
+      "doctor-service"
+    );
+    
     return response.data;
-  } catch (error) {
-    console.error("Doctor service error:", error.message);
-    return {
+  };
+  
+  // Execute with circuit breaker and fallback
+  return withCircuitBreaker(
+    doctorServiceBreaker,
+    operation,
+    {
       success: false,
-      message: "Could not connect to doctor-service",
+      message: "Doctor service unavailable - using cached/default data",
       data: []
-    };
-  }
+    }
+  );
 };
 
 /**
@@ -30,28 +56,47 @@ const searchDoctorsBySpecialtyFromDoctorService = async (specialty) => {
  * @returns {Promise<Object>} - Doctor availability data
  */
 const getDoctorAvailability = async (doctorId) => {
-  try {
+  const operation = async () => {
     const url = `${process.env.DOCTOR_SERVICE_URL}/api/doctors/${doctorId}/availability`;
     const serviceToken = generateServiceToken();
     
-    const response = await axios.get(url, {
-      headers: {
-        "X-Service-Token": serviceToken,
-        "X-Service-Name": "appointment-service"
-      }
-    });
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: url,
+        headers: {
+          "X-Service-Token": serviceToken,
+          "X-Service-Name": "appointment-service"
+        }
+      },
+      DOCTOR_SERVICE_RETRY_CONFIG,
+      "doctor-service"
+    );
+    
     return response.data;
-  } catch (error) {
-    console.error("Doctor availability fetch error:", error.message);
-    return {
+  };
+  
+  return withCircuitBreaker(
+    doctorServiceBreaker,
+    operation,
+    {
       success: false,
-      message: "Could not fetch doctor availability",
+      message: "Doctor availability service unavailable",
       data: null
-    };
-  }
+    }
+  );
+};
+
+/**
+ * Get circuit breaker state for monitoring
+ * @returns {Object}
+ */
+const getServiceHealth = () => {
+  return doctorServiceBreaker.getState();
 };
 
 module.exports = {
   searchDoctorsBySpecialtyFromDoctorService,
-  getDoctorAvailability
+  getDoctorAvailability,
+  getServiceHealth
 };

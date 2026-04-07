@@ -3,6 +3,8 @@ import { Search, Filter } from 'lucide-react';
 import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
 import { DoctorCard } from '../../components/doctors/DoctorCard';
+import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MOCK_DOCTORS = [
   {
@@ -69,13 +71,15 @@ const SPECIALTIES = [
 ];
 
 export function DoctorsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('All');
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
 
-  const handleBook = (id) => {
-    console.log('Booking doctor:', id);
-    // In a real app, this would open a booking modal
-    alert('Booking modal would open here for doctor ID: ' + id);
+  const handleBook = (doctor) => {
+    setSelectedDoctor(doctor);
+    setIsBookModalOpen(true);
   };
 
   const filteredDoctors = MOCK_DOCTORS.filter((doc) => {
@@ -142,7 +146,7 @@ export function DoctorsPage() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredDoctors.map((doctor) => (
-            <DoctorCard key={doctor.id} doctor={doctor} onBook={handleBook} />
+            <DoctorCard key={doctor.id} doctor={doctor} onBook={() => handleBook(doctor)} />
           ))}
         </div>
 
@@ -174,6 +178,17 @@ export function DoctorsPage() {
           </div>
         )}
       </div>
+
+      <BookAppointmentModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+        onSuccess={() => setIsBookModalOpen(false)}
+        patientId={user?.id || user?._id}
+        patientName={user?.name || user?.username}
+        patientEmail={user?.email}
+        patientPhone={user?.phone}
+        preSelectedDoctor={selectedDoctor}
+      />
     </div>
   );
 }

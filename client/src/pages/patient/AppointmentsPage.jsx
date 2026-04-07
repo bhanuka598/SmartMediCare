@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar as CalendarIcon, Loader2, AlertCircle, Activity } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, AlertCircle, Activity, Plus } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
+import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
 import { Button } from '../../components/shared/Button';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -74,6 +75,7 @@ export function AppointmentsPage() {
 
   const { user, isAuthenticated } = useAuth();
   const patientId = user?.id || user?._id;
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
 
   // Fetch appointments
   const fetchAppointments = async () => {
@@ -477,15 +479,29 @@ export function AppointmentsPage() {
             </p>
             {activeTab === 'upcoming' && (
               <Button 
-                className="mt-4" 
-                onClick={() => window.location.href = '/patient/doctors'}
+                className="mt-4 gap-2" 
+                onClick={() => setIsBookModalOpen(true)}
               >
+                <Plus className="h-4 w-4" />
                 Book an Appointment
               </Button>
             )}
           </div>
         )}
       </div>
+
+      <BookAppointmentModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+        onSuccess={() => {
+          fetchAppointments();
+          setIsBookModalOpen(false);
+        }}
+        patientId={user?.id || user?._id}
+        patientName={user?.name || user?.username}
+        patientEmail={user?.email}
+        patientPhone={user?.phone}
+      />
     </div>
   );
 }

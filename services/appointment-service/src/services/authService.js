@@ -4,9 +4,24 @@
  */
 
 const axios = require("axios");
+const { httpRequestWithRetry, CircuitBreaker, withCircuitBreaker } = require("../utils/failureHandler");
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5002";
 const INTERNAL_SERVICE_SECRET = process.env.INTERNAL_SERVICE_SECRET || "secret";
+
+// Circuit breaker for auth service
+const authServiceBreaker = new CircuitBreaker("auth-service", {
+  failureThreshold: 5,
+  resetTimeout: 30000
+});
+
+// Retry configuration for auth service calls
+const AUTH_SERVICE_RETRY_CONFIG = {
+  maxRetries: 3,
+  retryDelay: 1000,
+  timeout: 5000,
+  backoffMultiplier: 2
+};
 
 /**
  * Verify token with auth service
@@ -14,19 +29,25 @@ const INTERNAL_SERVICE_SECRET = process.env.INTERNAL_SERVICE_SECRET || "secret";
  * @returns {Promise<Object>} - User data if valid
  */
 const verifyTokenWithAuthService = async (token) => {
-  try {
-    const response = await axios.post(
-      `${AUTH_SERVICE_URL}/api/auth/verify-token`,
-      { token },
+  const operation = async () => {
+    const response = await httpRequestWithRetry(
       {
+        method: 'POST',
+        url: `${AUTH_SERVICE_URL}/api/auth/verify-token`,
+        data: { token },
         headers: { "Content-Type": "application/json" }
-      }
+      },
+      AUTH_SERVICE_RETRY_CONFIG,
+      "auth-service"
     );
     return response.data;
-  } catch (error) {
-    console.error("Auth service communication error:", error.message);
-    throw new Error(error.response?.data?.message || "Token verification failed");
-  }
+  };
+  
+  return withCircuitBreaker(
+    authServiceBreaker,
+    operation,
+    { valid: false, message: "Auth service unavailable" }
+  );
 };
 
 /**
@@ -35,18 +56,27 @@ const verifyTokenWithAuthService = async (token) => {
  * @returns {Promise<Object>} - User profile data
  */
 const getUserProfileFromAuthService = async (token) => {
-  try {
-    const response = await axios.get(`${AUTH_SERVICE_URL}/api/auth/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
-    });
+  const operation = async () => {
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: `${AUTH_SERVICE_URL}/api/auth/me`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      },
+      AUTH_SERVICE_RETRY_CONFIG,
+      "auth-service"
+    );
     return response.data.user;
-  } catch (error) {
-    console.error("Auth service profile fetch error:", error.message);
-    throw new Error(error.response?.data?.message || "Failed to get user profile");
-  }
+  };
+  
+  return withCircuitBreaker(
+    authServiceBreaker,
+    operation,
+    null
+  );
 };
 
 /**
@@ -56,22 +86,28 @@ const getUserProfileFromAuthService = async (token) => {
  * @returns {Promise<Object>} - User data
  */
 const getUserByIdFromAuthService = async (userId, serviceToken) => {
-  try {
-    const response = await axios.get(
-      `${AUTH_SERVICE_URL}/internal/users/${userId}`,
+  const operation = async () => {
+    const response = await httpRequestWithRetry(
       {
+        method: 'GET',
+        url: `${AUTH_SERVICE_URL}/internal/users/${userId}`,
         headers: {
           Authorization: `Bearer ${serviceToken}`,
           "Content-Type": "application/json",
           "X-Service-Name": "appointment-service"
         }
-      }
+      },
+      AUTH_SERVICE_RETRY_CONFIG,
+      "auth-service"
     );
     return response.data.user;
-  } catch (error) {
-    console.error("Auth service get user by ID error:", error.message);
-    throw new Error(error.response?.data?.message || "Failed to get user by ID");
-  }
+  };
+  
+  return withCircuitBreaker(
+    authServiceBreaker,
+    operation,
+    null
+  );
 };
 
 /**
@@ -80,13 +116,26 @@ const getUserByIdFromAuthService = async (userId, serviceToken) => {
  */
 const isAuthServiceHealthy = async () => {
   try {
-    const response = await axios.get(`${AUTH_SERVICE_URL}/health`, {
-      timeout: 5000
-    });
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: `${AUTH_SERVICE_URL}/health`
+      },
+      { maxRetries: 1, timeout: 3000 },
+      "auth-service"
+    );
     return response.status === 200;
   } catch (error) {
     return false;
   }
+};
+
+/**
+ * Get circuit breaker state for monitoring
+ * @returns {Object}
+ */
+const getServiceHealth = () => {
+  return authServiceBreaker.getState();
 };
 
 /**

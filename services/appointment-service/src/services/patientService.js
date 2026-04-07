@@ -5,9 +5,24 @@
 
 const axios = require("axios");
 const { generateServiceToken } = require("./authService");
+const { httpRequestWithRetry, CircuitBreaker, withCircuitBreaker } = require("../utils/failureHandler");
 
 const PATIENT_SERVICE_URL =
   process.env.PATIENT_SERVICE_URL || "http://localhost:5005";
+
+// Circuit breaker for patient service
+const patientServiceBreaker = new CircuitBreaker("patient-service", {
+  failureThreshold: 5,
+  resetTimeout: 30000
+});
+
+// Retry configuration for patient service calls
+const PATIENT_SERVICE_RETRY_CONFIG = {
+  maxRetries: 3,
+  retryDelay: 1000,
+  timeout: 5000,
+  backoffMultiplier: 2
+};
 
 /**
  * Get patient by ID from patient service
@@ -15,29 +30,38 @@ const PATIENT_SERVICE_URL =
  * @returns {Promise<Object>} - Patient data
  */
 const getPatientById = async (patientId) => {
-  try {
+  const operation = async () => {
     const url = `${PATIENT_SERVICE_URL}/api/patients/${patientId}`;
     const serviceToken = generateServiceToken();
 
-    const response = await axios.get(url, {
-      headers: {
-        "X-Service-Token": serviceToken,
-        "X-Service-Name": "appointment-service"
-      }
-    });
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: url,
+        headers: {
+          "X-Service-Token": serviceToken,
+          "X-Service-Name": "appointment-service"
+        }
+      },
+      PATIENT_SERVICE_RETRY_CONFIG,
+      "patient-service"
+    );
 
     return {
       success: true,
       data: response.data.data || response.data
     };
-  } catch (error) {
-    console.error("Patient service error:", error.message);
-    return {
+  };
+  
+  return withCircuitBreaker(
+    patientServiceBreaker,
+    operation,
+    {
       success: false,
-      message: "Could not fetch patient data",
-      error: error.message
-    };
-  }
+      message: "Patient service unavailable",
+      error: "Service temporarily unavailable"
+    }
+  );
 };
 
 /**
@@ -46,29 +70,38 @@ const getPatientById = async (patientId) => {
  * @returns {Promise<Object>} - Patient profile data
  */
 const getPatientProfile = async (patientId) => {
-  try {
+  const operation = async () => {
     const url = `${PATIENT_SERVICE_URL}/api/patients/${patientId}/profile`;
     const serviceToken = generateServiceToken();
 
-    const response = await axios.get(url, {
-      headers: {
-        "X-Service-Token": serviceToken,
-        "X-Service-Name": "appointment-service"
-      }
-    });
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: url,
+        headers: {
+          "X-Service-Token": serviceToken,
+          "X-Service-Name": "appointment-service"
+        }
+      },
+      PATIENT_SERVICE_RETRY_CONFIG,
+      "patient-service"
+    );
 
     return {
       success: true,
       data: response.data.data || response.data
     };
-  } catch (error) {
-    console.error("Patient profile fetch error:", error.message);
-    return {
+  };
+  
+  return withCircuitBreaker(
+    patientServiceBreaker,
+    operation,
+    {
       success: false,
-      message: "Could not fetch patient profile",
-      error: error.message
-    };
-  }
+      message: "Patient profile service unavailable",
+      error: "Service temporarily unavailable"
+    }
+  );
 };
 
 /**
@@ -77,29 +110,38 @@ const getPatientProfile = async (patientId) => {
  * @returns {Promise<Object>} - Medical history data
  */
 const getPatientMedicalHistory = async (patientId) => {
-  try {
+  const operation = async () => {
     const url = `${PATIENT_SERVICE_URL}/api/patients/${patientId}/medical-history`;
     const serviceToken = generateServiceToken();
 
-    const response = await axios.get(url, {
-      headers: {
-        "X-Service-Token": serviceToken,
-        "X-Service-Name": "appointment-service"
-      }
-    });
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: url,
+        headers: {
+          "X-Service-Token": serviceToken,
+          "X-Service-Name": "appointment-service"
+        }
+      },
+      PATIENT_SERVICE_RETRY_CONFIG,
+      "patient-service"
+    );
 
     return {
       success: true,
       data: response.data.data || response.data
     };
-  } catch (error) {
-    console.error("Medical history fetch error:", error.message);
-    return {
+  };
+  
+  return withCircuitBreaker(
+    patientServiceBreaker,
+    operation,
+    {
       success: false,
-      message: "Could not fetch medical history",
-      error: error.message
-    };
-  }
+      message: "Medical history service unavailable",
+      error: "Service temporarily unavailable"
+    }
+  );
 };
 
 /**
@@ -154,27 +196,33 @@ const getPatientNameById = async (patientId) => {
  * @returns {Promise<Object>} - Sync result
  */
 const syncPatientData = async (patientData) => {
-  try {
+  const operation = async () => {
     const serviceToken = generateServiceToken();
-    const response = await axios.post(
-      `${PATIENT_SERVICE_URL}/sync`,
-      patientData,
+    const response = await httpRequestWithRetry(
       {
+        method: 'POST',
+        url: `${PATIENT_SERVICE_URL}/sync`,
+        data: patientData,
         headers: {
           Authorization: `Bearer ${serviceToken}`,
           "Content-Type": "application/json",
           "X-Service-Name": "appointment-service"
         }
-      }
+      },
+      PATIENT_SERVICE_RETRY_CONFIG,
+      "patient-service"
     );
     return response.data;
-  } catch (error) {
-    console.error("Patient sync error:", error.message);
-    return {
+  };
+  
+  return withCircuitBreaker(
+    patientServiceBreaker,
+    operation,
+    {
       success: false,
-      message: error.response?.data?.message || "Could not sync patient data"
-    };
-  }
+      message: "Patient sync service unavailable"
+    }
+  );
 };
 
 /**
@@ -183,13 +231,26 @@ const syncPatientData = async (patientData) => {
  */
 const isPatientServiceHealthy = async () => {
   try {
-    const response = await axios.get(`${PATIENT_SERVICE_URL}/health`, {
-      timeout: 5000
-    });
+    const response = await httpRequestWithRetry(
+      {
+        method: 'GET',
+        url: `${PATIENT_SERVICE_URL}/health`
+      },
+      { maxRetries: 1, timeout: 3000 },
+      "patient-service"
+    );
     return response.status === 200;
   } catch (error) {
     return false;
   }
+};
+
+/**
+ * Get circuit breaker state for monitoring
+ * @returns {Object}
+ */
+const getServiceHealth = () => {
+  return patientServiceBreaker.getState();
 };
 
 module.exports = {
@@ -200,5 +261,6 @@ module.exports = {
   getPatientNameById,
   syncPatientData,
   isPatientServiceHealthy,
+  getServiceHealth,
   PATIENT_SERVICE_URL
 };

@@ -6,7 +6,8 @@ import {
   FileText,
   Search,
   ArrowRight,
-  Loader2
+  Loader2,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -17,6 +18,7 @@ import {
 } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
+import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -28,6 +30,7 @@ export function PatientDashboardPage() {
   const [recentRecords, setRecentRecords] = useState([]);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
 
   // Fetch with timeout, retry logic, and error handling
   const fetchWithRetry = useCallback(async (url, options = {}, retries = 3, timeout = 10000) => {
@@ -342,11 +345,15 @@ export function PatientDashboardPage() {
                 <div className="text-center py-8 text-slate-500">
                   <Calendar className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                   <p>No upcoming appointments</p>
-                  <Link to="/patient/doctors">
-                    <Button variant="outline" size="sm" className="mt-3">
-                      Book Now
-                    </Button>
-                  </Link>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3 gap-2"
+                    onClick={() => setIsBookModalOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Book Appointment
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -462,6 +469,18 @@ export function PatientDashboardPage() {
           </Card>
         </div>
       </div>
+      <BookAppointmentModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+        onSuccess={() => {
+          fetchDashboardData();
+          setIsBookModalOpen(false);
+        }}
+        patientId={user?.id || user?._id}
+        patientName={user?.name || user?.username}
+        patientEmail={user?.email}
+        patientPhone={user?.phone}
+      />
     </div>
   );
 }
