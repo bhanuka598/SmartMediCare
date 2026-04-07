@@ -69,6 +69,8 @@ services:
       - PORT=5003
       - MONGO_URI=mongodb://doctor-db:27017/doctordb
       - JWT_SECRET=secret
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - INTERNAL_SERVICE_SECRET=secret
     depends_on:
       - doctor-db
     networks:

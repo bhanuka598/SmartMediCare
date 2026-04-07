@@ -20,6 +20,7 @@ import { PatientProfilePage } from './pages/patient/PatientProfilePage';
 // Doctor Pages
 import { DoctorDashboardPage } from './pages/doctor/DashboardPage';
 import { DoctorAvailabilityPage } from './pages/doctor/AvailabilityPage';
+import { DoctorProfilePage } from './pages/doctor/ProfilePage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/DashboardPage';
@@ -87,6 +88,10 @@ export function App() {
             <Route
               path="/doctor/availability"
               element={<DoctorAvailabilityPage />}
+            />
+            <Route
+              path="/doctor/profile"
+              element={<DoctorProfilePage />}
             />
             <Route
               path="/doctor/consultations"

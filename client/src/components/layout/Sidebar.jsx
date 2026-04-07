@@ -32,7 +32,8 @@ export function Sidebar() {
     { to: '/doctor/availability', icon: Clock, label: 'Availability' },
     { to: '/doctor/consultations', icon: Video, label: 'Consultations' },
     { to: '/doctor/prescriptions', icon: ClipboardList, label: 'Prescriptions' },
-    { to: '/doctor/patients', icon: Users, label: 'My Patients' }
+    { to: '/doctor/patients', icon: Users, label: 'My Patients' },
+    { to: '/doctor/profile', icon: User, label: 'My Profile' }
   ];
 
   const adminLinks = [
