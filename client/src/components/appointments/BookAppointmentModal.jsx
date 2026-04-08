@@ -71,6 +71,11 @@ export function BookAppointmentModal({
   const [duration, setDuration] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [patientContact, setPatientContact] = useState({
+    name: patientName || '',
+    email: patientEmail || '',
+    phone: patientPhone || ''
+  });
 
   // Reset state when modal opens
   useEffect(() => {
@@ -93,8 +98,46 @@ export function BookAppointmentModal({
       setSymptoms('');
       setDuration(30);
       setError(null);
+      setPatientContact({
+        name: patientName || '',
+        email: patientEmail || '',
+        phone: patientPhone || ''
+      });
     }
-  }, [isOpen, preSelectedDoctor]);
+  }, [isOpen, preSelectedDoctor, patientEmail, patientName, patientPhone]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchPatientProfile = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/patient/profile`, {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) return;
+
+        const profile = data.profile || {};
+        setPatientContact((prev) => ({
+          name:
+            `${profile.profile?.firstName || ''} ${profile.profile?.lastName || ''}`.trim() ||
+            prev.name ||
+            patientName ||
+            '',
+          email: profile.email || prev.email || patientEmail || '',
+          phone: profile.profile?.phone || prev.phone || patientPhone || ''
+        }));
+      } catch (err) {
+        console.error('Patient profile fetch for booking failed:', err);
+      }
+    };
+
+    fetchPatientProfile();
+  }, [isOpen, patientEmail, patientName, patientPhone]);
 
   // Search doctors by specialty
   const searchDoctors = async () => {
@@ -214,9 +257,9 @@ export function BookAppointmentModal({
     try {
       const appointmentData = {
         patientId: resolvedPatientId,
-        patientName,
-        patientEmail,
-        patientPhone,
+        patientName: patientContact.name || patientName,
+        patientEmail: patientContact.email || patientEmail,
+        patientPhone: patientContact.phone || patientPhone,
         doctorId: resolvedDoctorId,
         doctorName: selectedDoctor.name,
         specialty: selectedDoctor.specialty,
