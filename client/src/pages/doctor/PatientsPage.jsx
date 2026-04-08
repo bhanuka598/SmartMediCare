@@ -57,6 +57,7 @@ export function PatientsPage() {
   });
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [initialModalSection, setInitialModalSection] = useState('overview');
   const [pendingRequests, setPendingRequests] = useState([]);
   const [actionLoading, setActionLoading] = useState(null); // appointmentId being processed
 
@@ -623,10 +624,23 @@ export function PatientsPage() {
                           size="sm"
                           onClick={() => {
                             setSelectedPatient(patient);
+                            setInitialModalSection('overview');
                             setIsModalOpen(true);
                           }}
                         >
                           View
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => {
+                            setSelectedPatient(patient);
+                            setInitialModalSection('prescriptions');
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          <Pill size={14} />
+                          Prescribe
                         </Button>
                         <button className="p-1 hover:bg-slate-100 rounded">
                           <MoreVertical size={18} className="text-slate-500" />
@@ -680,9 +694,11 @@ export function PatientsPage() {
           <PatientDetailsModal
             patient={selectedPatient}
             token={token}
+            initialSection={initialModalSection}
             onClose={() => {
               setIsModalOpen(false);
               setSelectedPatient(null);
+              setInitialModalSection('overview');
             }}
           formatDate={formatDate}
           onAcceptAppointment={handleAcceptAppointment}
@@ -695,13 +711,15 @@ export function PatientsPage() {
 }
 
 // Patient Details Modal Component
-function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppointment, onRejectAppointment, actionLoading }) {
+function PatientDetailsModal({ patient, token, initialSection = 'overview', onClose, formatDate, onAcceptAppointment, onRejectAppointment, actionLoading }) {
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [reports, setReports] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [detailsError, setDetailsError] = useState(null);
   const [issuingPrescription, setIssuingPrescription] = useState(false);
   const [prescriptionError, setPrescriptionError] = useState(null);
+  const [prescriptionSuccess, setPrescriptionSuccess] = useState(null);
   const [prescriptionForm, setPrescriptionForm] = useState({
     appointmentId: '',
     diagnosis: '',
@@ -726,6 +744,10 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
       document.body.style.overflow = 'unset';
     };
   }, [onClose]);
+
+  useEffect(() => {
+    setActiveSection(initialSection);
+  }, [initialSection, patient?.id]);
 
   useEffect(() => {
     const fetchPatientResources = async () => {
@@ -817,6 +839,8 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
   );
 
   const handlePrescriptionFieldChange = (field, value) => {
+    if (prescriptionError) setPrescriptionError(null);
+    if (prescriptionSuccess) setPrescriptionSuccess(null);
     setPrescriptionForm((prev) => ({
       ...prev,
       [field]: value
@@ -864,6 +888,7 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
       }
 
       setPrescriptions((prev) => [result.data, ...prev]);
+      setPrescriptionSuccess('Prescription issued successfully and saved to the patient record.');
       setPrescriptionForm({
         appointmentId: '',
         diagnosis: '',
@@ -875,6 +900,7 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
         notes: '',
         followUpDate: ''
       });
+      setActiveSection('prescriptions');
     } catch (error) {
       console.error('Error issuing prescription:', error);
       setPrescriptionError(error.message || 'Failed to issue prescription');
@@ -958,6 +984,35 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
             </div>
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={activeSection === 'overview' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setActiveSection('overview')}
+            >
+              Overview
+            </Button>
+            <Button
+              variant={activeSection === 'prescriptions' ? 'primary' : 'outline'}
+              size="sm"
+              className="gap-2"
+              onClick={() => setActiveSection('prescriptions')}
+            >
+              <Pill size={14} />
+              Prescriptions
+            </Button>
+            <Button
+              variant={activeSection === 'reports' ? 'primary' : 'outline'}
+              size="sm"
+              className="gap-2"
+              onClick={() => setActiveSection('reports')}
+            >
+              <FileText size={14} />
+              Reports
+            </Button>
+          </div>
+
+          {activeSection !== 'reports' && (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -1007,11 +1062,11 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
                   ))}
                 </div>
               ) : (
-                <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-500">
-                  No patient-uploaded reports available yet.
-                </div>
-              )}
-            </div>
+                  <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-500">
+                    No patient-uploaded reports available yet.
+                  </div>
+                )}
+              </div>
 
             <div className="space-y-6">
               <div>
@@ -1073,6 +1128,9 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
                   <Pill size={18} />
                   Issue New Prescription
                 </h4>
+                <p className="text-sm text-slate-500 mb-4">
+                  Create a digital prescription for this patient and optionally attach it to a specific appointment.
+                </p>
 
                 <form className="space-y-4" onSubmit={handleIssuePrescription}>
                   <div>
@@ -1177,26 +1235,92 @@ function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppo
                     />
                   </div>
 
+                  {prescriptionSuccess && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                      {prescriptionSuccess}
+                    </div>
+                  )}
+
                   {prescriptionError && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                       {prescriptionError}
                     </div>
                   )}
 
-                  <Button type="submit" className="w-full" disabled={issuingPrescription}>
+                  <Button type="submit" className="w-full gap-2" disabled={issuingPrescription}>
                     {issuingPrescription ? (
                       <span className="flex items-center justify-center gap-2">
                         <Loader2 size={16} className="animate-spin" />
                         Issuing prescription...
                       </span>
                     ) : (
-                      'Issue Digital Prescription'
+                      <>
+                        <Pill size={16} />
+                        Issue Digital Prescription
+                      </>
                     )}
                   </Button>
                 </form>
               </div>
             </div>
           </div>
+          )}
+
+          {activeSection === 'reports' && (
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <FileText size={20} />
+                Patient Uploaded Reports
+              </h3>
+
+              {detailsLoading ? (
+                <div className="flex items-center gap-2 text-slate-500 p-4 bg-slate-50 rounded-lg">
+                  <Loader2 size={16} className="animate-spin" />
+                  Loading reports...
+                </div>
+              ) : detailsError ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {detailsError}
+                </div>
+              ) : reports.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {reports.map((report) => (
+                    <div
+                      key={report._id}
+                      className="p-4 border border-slate-200 rounded-lg bg-white"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-900">{report.title}</p>
+                          <p className="text-sm text-slate-500">
+                            {report.category || 'other'} • {report.fileType || 'file'}
+                          </p>
+                          {report.description && (
+                            <p className="text-sm text-slate-600 mt-2">{report.description}</p>
+                          )}
+                          <p className="text-xs text-slate-400 mt-2">
+                            Uploaded {formatDate(report.uploadedAt)}
+                          </p>
+                        </div>
+                        <a
+                          href={report.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Open <ExternalLink size={14} />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-500">
+                  No patient-uploaded reports available yet.
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Appointment History */}
           <div>
