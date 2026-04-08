@@ -1,17 +1,31 @@
-const buildResendPayload = ({ to, subject, html, text }) => ({
-  from: process.env.EMAIL_FROM || "no-reply@smartmedicare.local",
-  to: Array.isArray(to) ? to : [to],
-  subject,
-  html,
-  text
-});
+const nodemailer = require("nodemailer");
+
+const hasSmtpCredentials = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+
+const transporter = hasSmtpCredentials
+  ? nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || "smtp.gmail.com",
+      port: Number(process.env.EMAIL_PORT || 465),
+      secure: String(process.env.EMAIL_SECURE || "true") === "true",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 30000
+    })
+  : null;
 
 const sendEmail = async ({ to, subject, html, text }) => {
   if (!to) {
     return { success: false, provider: "email", message: "Recipient email is required" };
   }
 
-  if (!process.env.RESEND_API_KEY) {
+  if (!transporter) {
     console.log("[notification-service] Mock email sent", { to, subject, text });
     return {
       success: true,
@@ -21,31 +35,19 @@ const sendEmail = async ({ to, subject, html, text }) => {
     };
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildResendPayload({ to, subject, html, text }))
+  const info = await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to,
+    subject,
+    html,
+    text
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    return {
-      success: false,
-      provider: "email",
-      message: data?.message || "Email provider request failed",
-      error: data
-    };
-  }
 
   return {
     success: true,
     provider: "email",
     mode: "live",
-    messageId: data?.id || null
+    messageId: info?.messageId || null
   };
 };
 

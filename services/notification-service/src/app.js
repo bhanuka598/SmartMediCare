@@ -20,7 +20,7 @@ app.get("/health", (req, res) => {
     success: true,
     status: "healthy",
     providers: {
-      email: process.env.RESEND_API_KEY ? "live" : "mock",
+      email: process.env.EMAIL_USER && process.env.EMAIL_PASS ? "live" : "mock",
       sms: process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER ? "live" : "mock"
     },
     timestamp: new Date().toISOString()
