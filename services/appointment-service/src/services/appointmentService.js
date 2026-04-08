@@ -1,7 +1,11 @@
 const Appointment = require("../models/Appointment");
-const { searchDoctorsBySpecialtyFromDoctorService, getAllDoctorsFromDoctorService, getDoctorAvailability } = require("./doctorService");
+const { searchDoctorsBySpecialtyFromDoctorService, getAllDoctorsFromDoctorService, getDoctorAvailability, getDoctorById } = require("./doctorService");
 const { getPatientById } = require("./patientService");
 const { createTelemedicineSession } = require("./telemedicineService");
+const {
+  sendAppointmentBookedNotification,
+  sendConsultationCompletedNotification
+} = require("./notificationService");
 
 const isPastDateTime = (dateStr, timeStr) => {
   const appointmentDateTime = new Date(`${dateStr}T${timeStr}`);
@@ -74,12 +78,21 @@ const createAppointment = async (appointmentData, userId) => {
     const appDuration = duration || 30;
     const endTime = calculateEndTime(appointmentTime, appDuration);
 
+    const patientProfile = await getPatientById(patientId);
+    const doctorProfile = await getDoctorById(doctorId);
+
+    const resolvedPatientName = patientName || patientProfile?.data?.name || "";
+    const resolvedPatientEmail = patientEmail || patientProfile?.data?.email || "";
+    const resolvedPatientPhone = patientPhone || patientProfile?.data?.phone || "";
+    const resolvedDoctorName = appointmentData.doctorName || doctorProfile?.data?.name || "";
+
     const appointment = await Appointment.create({
       patientId,
-      patientName: patientName || "",
-      patientEmail: patientEmail || "",
-      patientPhone: patientPhone || "",
+      patientName: resolvedPatientName,
+      patientEmail: resolvedPatientEmail,
+      patientPhone: resolvedPatientPhone,
       doctorId,
+      doctorName: resolvedDoctorName,
       specialty,
       appointmentDate,
       appointmentTime,
@@ -93,6 +106,27 @@ const createAppointment = async (appointmentData, userId) => {
       _changedBy: userId,
       _changeReason: "Appointment created"
     });
+
+    try {
+      await sendAppointmentBookedNotification({
+        appointmentId: appointment._id.toString(),
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        type: appointment.type,
+        patient: {
+          name: resolvedPatientName,
+          email: resolvedPatientEmail,
+          phone: resolvedPatientPhone
+        },
+        doctor: {
+          name: resolvedDoctorName,
+          email: doctorProfile?.data?.email || "",
+          phone: doctorProfile?.data?.phone || ""
+        }
+      });
+    } catch (notificationError) {
+      console.warn("[appointment-service] Booking notification failed:", notificationError.message);
+    }
 
     return {
       success: true,
@@ -518,6 +552,28 @@ const completeAppointment = async (id, notes, prescription, userId) => {
     appointment._changeReason = "Appointment completed";
 
     await appointment.save();
+
+    try {
+      const doctorProfile = await getDoctorById(appointment.doctorId);
+      await sendConsultationCompletedNotification({
+        appointmentId: appointment._id.toString(),
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        type: appointment.type,
+        patient: {
+          name: appointment.patientName || "Patient",
+          email: appointment.patientEmail || "",
+          phone: appointment.patientPhone || ""
+        },
+        doctor: {
+          name: appointment.doctorName || doctorProfile?.data?.name || "Doctor",
+          email: doctorProfile?.data?.email || "",
+          phone: doctorProfile?.data?.phone || ""
+        }
+      });
+    } catch (notificationError) {
+      console.warn("[appointment-service] Completion notification failed:", notificationError.message);
+    }
 
     return {
       success: true,

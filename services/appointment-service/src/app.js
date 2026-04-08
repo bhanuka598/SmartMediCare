@@ -7,6 +7,7 @@ const { getServiceHealth: getAuthHealth } = require("./services/authService");
 const { getServiceHealth: getDoctorHealth } = require("./services/doctorService");
 const { getServiceHealth: getPatientHealth } = require("./services/patientService");
 const { getServiceHealth: getTelemedicineHealth } = require("./services/telemedicineService");
+const { getServiceHealth: getNotificationHealth } = require("./services/notificationService");
 
 const app = express();
 
@@ -34,7 +35,8 @@ app.get("/health", (req, res) => {
     authService: getAuthHealth(),
     doctorService: getDoctorHealth(),
     patientService: getPatientHealth(),
-    telemedicineService: getTelemedicineHealth()
+    telemedicineService: getTelemedicineHealth(),
+    notificationService: getNotificationHealth()
   };
 
   // Check if any circuit breaker is open

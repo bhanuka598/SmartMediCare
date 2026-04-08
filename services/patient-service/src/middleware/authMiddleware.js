@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const INTERNAL_SERVICE_SECRET = process.env.INTERNAL_SERVICE_SECRET || 'secret';
 
 // JWT Authentication middleware
 const authMiddleware = (req, res, next) => {
@@ -64,4 +65,28 @@ const adminMiddleware = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, doctorMiddleware, adminMiddleware };
+const serviceAuthMiddleware = (req, res, next) => {
+  try {
+    const serviceToken = req.header('X-Service-Token');
+    const serviceName = req.header('X-Service-Name');
+
+    if (!serviceToken || !serviceName) {
+      return res.status(401).json({ message: 'Service token required' });
+    }
+
+    const decoded = jwt.verify(serviceToken, INTERNAL_SERVICE_SECRET);
+
+    if (!decoded.service || decoded.service !== serviceName) {
+      return res.status(403).json({ message: 'Invalid service credentials' });
+    }
+
+    req.serviceName = decoded.service;
+    req.isServiceRequest = true;
+    next();
+  } catch (error) {
+    console.error('Service auth middleware error:', error.message);
+    res.status(401).json({ message: 'Invalid service token', error: error.message });
+  }
+};
+
+module.exports = { authMiddleware, doctorMiddleware, adminMiddleware, serviceAuthMiddleware };

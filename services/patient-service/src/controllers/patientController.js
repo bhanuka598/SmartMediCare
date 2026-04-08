@@ -776,3 +776,32 @@ exports.syncPatient = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+exports.getPatientInternalProfile = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    const patient = await Patient.findOne({ userId: patientId })
+      .select('userId email username profile.firstName profile.lastName profile.phone');
+
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        userId: patient.userId,
+        email: patient.email || '',
+        phone: patient.profile?.phone || '',
+        name:
+          `${patient.profile?.firstName || ''} ${patient.profile?.lastName || ''}`.trim() ||
+          patient.username ||
+          patient.email
+      }
+    });
+  } catch (error) {
+    console.error('Get patient internal profile error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};

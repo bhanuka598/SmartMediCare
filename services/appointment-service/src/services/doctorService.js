@@ -71,6 +71,42 @@ const getAllDoctorsFromDoctorService = async () => {
   );
 };
 
+const getDoctorById = async (doctorId) => {
+  const operation = async () => {
+    const { generateServiceToken } = require("./authService");
+    const serviceToken = generateServiceToken();
+    const url = `${process.env.DOCTOR_SERVICE_URL}/api/doctors/internal/${doctorId}`;
+
+    const response = await httpRequestWithRetry(
+      {
+        method: "GET",
+        url,
+        headers: {
+          "X-Service-Token": serviceToken,
+          "X-Service-Name": "appointment-service"
+        }
+      },
+      DOCTOR_SERVICE_RETRY_CONFIG,
+      "doctor-service"
+    );
+
+    return {
+      success: true,
+      data: response.data.data || response.data
+    };
+  };
+
+  return withCircuitBreaker(
+    doctorServiceBreaker,
+    operation,
+    {
+      success: false,
+      message: "Doctor service unavailable",
+      error: "Service temporarily unavailable"
+    }
+  );
+};
+
 /**
  * Get doctor availability from doctor service
  * @param {string} doctorId - Doctor ID
@@ -114,6 +150,7 @@ const getServiceHealth = () => {
 module.exports = {
   searchDoctorsBySpecialtyFromDoctorService,
   getAllDoctorsFromDoctorService,
+  getDoctorById,
   getDoctorAvailability,
   getServiceHealth
 };

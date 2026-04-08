@@ -31,7 +31,7 @@ const PATIENT_SERVICE_RETRY_CONFIG = {
  */
 const getPatientById = async (patientId) => {
   const operation = async () => {
-    const url = `${PATIENT_SERVICE_URL}/api/patients/${patientId}`;
+    const url = `${PATIENT_SERVICE_URL}/api/patients/internal/${patientId}`;
     const serviceToken = generateServiceToken();
 
     const response = await httpRequestWithRetry(
