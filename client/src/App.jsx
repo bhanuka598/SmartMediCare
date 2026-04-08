@@ -23,6 +23,7 @@ import { DoctorAvailabilityPage } from './pages/doctor/AvailabilityPage';
 import { DoctorProfilePage } from './pages/doctor/ProfilePage';
 import { PatientsPage } from './pages/doctor/PatientsPage';
 import { ConsultationsPage } from './pages/doctor/ConsultationsPage';
+import { DoctorPrescriptionsPage } from './pages/doctor/PrescriptionsPage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/DashboardPage';
@@ -101,7 +102,7 @@ export function App() {
             />
             <Route
               path="/doctor/prescriptions"
-              element={<PlaceholderPage title="Prescriptions" />}
+              element={<DoctorPrescriptionsPage />}
             />
             <Route
               path="/doctor/patients"

@@ -4,6 +4,7 @@ import {
   Activity,
   Calendar,
   FileText,
+  Pill,
   Search,
   ArrowRight,
   Loader2,
@@ -28,6 +29,7 @@ export function PatientDashboardPage() {
   const [stats, setStats] = useState(null);
   const [upcomingAppointment, setUpcomingAppointment] = useState(null);
   const [recentRecords, setRecentRecords] = useState([]);
+  const [recentPrescriptions, setRecentPrescriptions] = useState([]);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
@@ -161,8 +163,23 @@ export function PatientDashboardPage() {
         setProfile(null);
       }
 
+      try {
+        const prescriptionsData = await fetchWithRetry(
+          `${API_URL}/api/patient/prescriptions?limit=2`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+          3,
+          10000
+        );
+        if (prescriptionsData.success) {
+          setRecentPrescriptions(prescriptionsData.prescriptions?.slice(0, 2) || []);
+        }
+      } catch (err) {
+        console.error('Prescriptions fetch failed:', err.message);
+        setRecentPrescriptions([]);
+      }
+
       // Show partial error if all requests failed
-      if (!stats && !upcomingAppointment && recentRecords.length === 0 && !profile) {
+      if (!stats && !upcomingAppointment && recentRecords.length === 0 && recentPrescriptions.length === 0 && !profile) {
         setError('Unable to load dashboard data. Please check your connection and try again.');
       }
     } catch (err) {
@@ -400,6 +417,61 @@ export function PatientDashboardPage() {
                       <Link to="/patient/records">
                         <Button variant="ghost" size="sm">
                           View
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Recent Prescriptions</CardTitle>
+              <Link
+                to="/patient/records"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                View all <ArrowRight size={16} />
+              </Link>
+            </CardHeader>
+
+            <CardContent>
+              {recentPrescriptions.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <Pill className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                  <p>No prescriptions yet</p>
+                  <p className="text-sm">Issued prescriptions will appear here after your consultations.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentPrescriptions.map((prescription) => (
+                    <div
+                      key={prescription._id || prescription.prescriptionId}
+                      className="flex items-start justify-between p-4 rounded-lg border border-slate-100 bg-slate-50"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="h-10 w-10 rounded bg-white border border-slate-200 flex items-center justify-center text-green-600">
+                          <Pill size={20} />
+                        </div>
+
+                        <div>
+                          <p className="font-medium text-slate-900">{prescription.diagnosis}</p>
+                          <p className="text-sm text-slate-500">
+                            Dr. {prescription.doctorName} • {formatDate(prescription.createdAt)}
+                          </p>
+                          {prescription.medications?.[0]?.name && (
+                            <p className="text-sm text-slate-600 mt-1">
+                              {prescription.medications[0].name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <Link to="/patient/records">
+                        <Button variant="ghost" size="sm">
+                          Open
                         </Button>
                       </Link>
                     </div>

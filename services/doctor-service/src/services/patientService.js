@@ -1,8 +1,8 @@
-const PATIENT_SERVICE_URL = process.env.PATIENT_SERVICE_URL || 'http://localhost:5002';
+const PATIENT_SERVICE_URL = process.env.PATIENT_SERVICE_URL || 'http://localhost:5005';
 
 const getPatientReports = async (patientId, token) => {
   const response = await fetch(
-    `${PATIENT_SERVICE_URL}/api/patient/doctor-access/patients/${patientId}/reports`,
+    `${PATIENT_SERVICE_URL}/doctor-access/patients/${patientId}/reports`,
     {
       method: 'GET',
       headers: {
@@ -23,7 +23,7 @@ const getPatientReports = async (patientId, token) => {
 
 const getPatientPrescriptions = async (patientId, token) => {
   const response = await fetch(
-    `${PATIENT_SERVICE_URL}/api/patient/doctor-access/patients/${patientId}/prescriptions`,
+    `${PATIENT_SERVICE_URL}/doctor-access/patients/${patientId}/prescriptions`,
     {
       method: 'GET',
       headers: {
@@ -44,7 +44,7 @@ const getPatientPrescriptions = async (patientId, token) => {
 
 const issuePrescription = async (patientId, token, payload) => {
   const response = await fetch(
-    `${PATIENT_SERVICE_URL}/api/patient/doctor-access/patients/${patientId}/prescriptions`,
+    `${PATIENT_SERVICE_URL}/doctor-access/patients/${patientId}/prescriptions`,
     {
       method: 'POST',
       headers: {
@@ -64,8 +64,30 @@ const issuePrescription = async (patientId, token, payload) => {
   return data;
 };
 
+const getDoctorIssuedPrescriptions = async (token) => {
+  const response = await fetch(
+    `${PATIENT_SERVICE_URL}/doctor-access/prescriptions`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || `Failed to fetch issued prescriptions: ${response.status}`);
+  }
+
+  return data;
+};
+
 module.exports = {
   getPatientReports,
   getPatientPrescriptions,
-  issuePrescription
+  issuePrescription,
+  getDoctorIssuedPrescriptions
 };

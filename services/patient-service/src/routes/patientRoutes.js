@@ -8,6 +8,7 @@ const symptomController = require('../controllers/symptomController');
 router.get('/doctor-access/patients/:patientId/reports', doctorMiddleware, patientController.getPatientReportsForDoctor);
 router.get('/doctor-access/patients/:patientId/prescriptions', doctorMiddleware, patientController.getPatientPrescriptionsForDoctor);
 router.post('/doctor-access/patients/:patientId/prescriptions', doctorMiddleware, patientController.issuePrescriptionForPatient);
+router.get('/doctor-access/prescriptions', doctorMiddleware, patientController.getDoctorIssuedPrescriptions);
 
 // All routes require authentication
 router.use(authMiddleware);

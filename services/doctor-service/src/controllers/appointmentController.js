@@ -685,3 +685,23 @@ exports.issuePrescription = async (req, res) => {
     });
   }
 };
+
+exports.getIssuedPrescriptions = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const result = await patientService.getDoctorIssuedPrescriptions(token);
+    return res.json(result);
+  } catch (error) {
+    console.error('Get issued prescriptions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch issued prescriptions',
+      error: error.message
+    });
+  }
+};

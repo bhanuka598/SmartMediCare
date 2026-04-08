@@ -681,6 +681,40 @@ exports.issuePrescriptionForPatient = async (req, res) => {
   }
 };
 
+exports.getDoctorIssuedPrescriptions = async (req, res) => {
+  try {
+    const { userId } = req;
+
+    const patients = await Patient.find({
+      'prescriptions.doctorId': userId
+    }).select('userId email username profile.firstName profile.lastName prescriptions');
+
+    const prescriptions = patients.flatMap((patient) =>
+      (patient.prescriptions || [])
+        .filter((prescription) => prescription.doctorId === userId)
+        .map((prescription) => ({
+          ...prescription.toObject(),
+          patientId: patient.userId,
+          patientName:
+            `${patient.profile?.firstName || ''} ${patient.profile?.lastName || ''}`.trim() ||
+            patient.username ||
+            patient.email
+        }))
+    );
+
+    prescriptions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return res.json({
+      success: true,
+      data: prescriptions,
+      count: prescriptions.length
+    });
+  } catch (error) {
+    console.error('Get doctor issued prescriptions error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
 // Helper function to calculate profile completion percentage
 const calculateProfileCompletion = (profile) => {
   if (!profile) return 0;

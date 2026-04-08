@@ -34,6 +34,7 @@ router.get('/statistics', doctorController.getStatistics);
 
 // Appointment management routes
 router.get('/appointments', appointmentController.getMyAppointments);
+router.get('/prescriptions', appointmentController.getIssuedPrescriptions);
 router.get('/appointments/pending', appointmentController.getPendingRequests);
 router.get('/appointments/today', appointmentController.getTodayAppointments);
 router.get('/appointments/stats', appointmentController.getAppointmentStats);
