@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, doctorMiddleware, adminMiddleware } = require('../middleware/authMiddleware');
+const { authMiddleware, doctorMiddleware, adminMiddleware, serviceAuthMiddleware } = require('../middleware/authMiddleware');
 const patientController = require('../controllers/patientController');
 const symptomController = require('../controllers/symptomController');
 
@@ -9,6 +9,8 @@ router.get('/doctor-access/patients/:patientId/reports', doctorMiddleware, patie
 router.get('/doctor-access/patients/:patientId/prescriptions', doctorMiddleware, patientController.getPatientPrescriptionsForDoctor);
 router.post('/doctor-access/patients/:patientId/prescriptions', doctorMiddleware, patientController.issuePrescriptionForPatient);
 router.get('/doctor-access/prescriptions', doctorMiddleware, patientController.getDoctorIssuedPrescriptions);
+
+router.get('/internal/:patientId', serviceAuthMiddleware, patientController.getPatientInternalProfile);
 
 // All routes require authentication
 router.use(authMiddleware);

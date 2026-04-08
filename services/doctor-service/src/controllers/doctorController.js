@@ -370,6 +370,34 @@ exports.getAllDoctors = async (req, res) => {
   }
 };
 
+exports.getDoctorInternalProfile = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    const doctor = await Doctor.findOne({ userId: doctorId, isActive: true })
+      .select("userId email username profile.firstName profile.lastName profile.phone professional.specialization practice.hospital");
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        userId: doctor.userId,
+        email: doctor.email || "",
+        phone: doctor.profile?.phone || "",
+        name: doctor.fullName,
+        specialty: doctor.professional?.specialization || "",
+        hospital: doctor.practice?.hospital || ""
+      }
+    });
+  } catch (error) {
+    console.error("Get doctor internal profile error:", error);
+    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
 // Get all specializations
 exports.getSpecializations = async (req, res) => {
   try {

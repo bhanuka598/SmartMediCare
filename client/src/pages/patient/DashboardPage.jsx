@@ -33,6 +33,30 @@ export function PatientDashboardPage() {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const displayName =
+    user?.name ||
+    user?.username ||
+    user?.email ||
+    'Patient';
+
+  const firstName = displayName.split(' ')[0];
+
+  const normalizeAppointmentStatus = (status) => {
+    switch ((status || '').toUpperCase()) {
+      case 'COMPLETED':
+        return 'completed';
+      case 'CANCELLED':
+      case 'REJECTED':
+      case 'NO_SHOW':
+        return 'cancelled';
+      default:
+        return 'upcoming';
+    }
+  };
+
+  const normalizeAppointmentType = (type) => {
+    return type === 'TELEMEDICINE' ? 'video' : 'in-person';
+  };
 
   // Fetch with timeout, retry logic, and error handling
   const fetchWithRetry = useCallback(async (url, options = {}, retries = 3, timeout = 10000) => {
@@ -90,6 +114,7 @@ export function PatientDashboardPage() {
     try {
       setLoading(true);
       setError(null);
+      let hasLoadedData = false;
 
       // Fetch dashboard stats with retry
       try {
@@ -99,7 +124,10 @@ export function PatientDashboardPage() {
           3,
           10000
         );
-        if (statsData.success) setStats(statsData.stats);
+        if (statsData.success) {
+          setStats(statsData.stats);
+          hasLoadedData = true;
+        }
       } catch (err) {
         console.error('Stats fetch failed:', err.message);
         setStats({ totalAppointments: 0, completedAppointments: 0, totalReports: 0, totalPrescriptions: 0 });
@@ -121,10 +149,13 @@ export function PatientDashboardPage() {
             specialty: appt.specialty || 'General',
             date: new Date(appt.appointmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             time: appt.appointmentTime,
-            status: appt.status,
-            type: appt.type || 'video',
+            status: normalizeAppointmentStatus(appt.status),
+            type: normalizeAppointmentType(appt.type),
             doctorImage: appt.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'
           });
+          hasLoadedData = true;
+        } else {
+          setUpcomingAppointment(null);
         }
       } catch (err) {
         console.error('Appointments fetch failed:', err.message);
@@ -141,6 +172,7 @@ export function PatientDashboardPage() {
         );
         if (reportsData.success) {
           setRecentRecords(reportsData.reports?.slice(0, 2) || []);
+          hasLoadedData = true;
         }
       } catch (err) {
         console.error('Reports fetch failed:', err.message);
@@ -156,7 +188,8 @@ export function PatientDashboardPage() {
           10000
         );
         if (profileData.success) {
-          setProfile(profileData.patient);
+          setProfile(profileData.profile || null);
+          hasLoadedData = true;
         }
       } catch (err) {
         console.error('Profile fetch failed:', err.message);
@@ -172,6 +205,7 @@ export function PatientDashboardPage() {
         );
         if (prescriptionsData.success) {
           setRecentPrescriptions(prescriptionsData.prescriptions?.slice(0, 2) || []);
+          hasLoadedData = true;
         }
       } catch (err) {
         console.error('Prescriptions fetch failed:', err.message);
@@ -179,7 +213,7 @@ export function PatientDashboardPage() {
       }
 
       // Show partial error if all requests failed
-      if (!stats && !upcomingAppointment && recentRecords.length === 0 && recentPrescriptions.length === 0 && !profile) {
+      if (!hasLoadedData) {
         setError('Unable to load dashboard data. Please check your connection and try again.');
       }
     } catch (err) {
@@ -226,7 +260,7 @@ export function PatientDashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            Welcome back, {user?.name?.split(' ')[0]}
+            Welcome back, {firstName}
           </h1>
           <p className="text-slate-500">
             Here's a summary of your health journey.
@@ -518,23 +552,23 @@ export function PatientDashboardPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
                 <span className="text-slate-600">Blood Type</span>
-                <span className="font-medium text-slate-900">{profile?.bloodType || 'N/A'}</span>
+                <span className="font-medium text-slate-900">{profile?.profile?.bloodType || 'N/A'}</span>
               </div>
 
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
                 <span className="text-slate-600">Height</span>
-                <span className="font-medium text-slate-900">{profile?.height ? `${profile.height} cm` : 'N/A'}</span>
+                <span className="font-medium text-slate-900">{profile?.profile?.height ? `${profile.profile.height} cm` : 'N/A'}</span>
               </div>
 
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
                 <span className="text-slate-600">Weight</span>
-                <span className="font-medium text-slate-900">{profile?.weight ? `${profile.weight} kg` : 'N/A'}</span>
+                <span className="font-medium text-slate-900">{profile?.profile?.weight ? `${profile.profile.weight} kg` : 'N/A'}</span>
               </div>
 
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-600">Allergies</span>
                 <span className="font-medium text-slate-900">
-                  {profile?.allergies?.length > 0 ? profile.allergies.join(', ') : 'None'}
+                  {profile?.profile?.allergies?.length > 0 ? profile.profile.allergies.join(', ') : 'None'}
                 </span>
               </div>
             </CardContent>

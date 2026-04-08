@@ -1,6 +1,7 @@
 const Patient = require('../models/Patient');
 const appointmentService = require('../services/appointmentService');
 const telemedicineService = require('../services/telemedicineService');
+const { normalizePatientProfilePhones, normalizeSriLankanPhone } = require('../utils/phone');
 
 const hasDoctorPatientRelationship = async (doctorId, patientId, token) => {
   const result = await appointmentService.getDoctorAppointments(doctorId, token, {
@@ -78,12 +79,13 @@ exports.updateProfile = async (req, res) => {
         userId,
         email: req.userEmail,
         username: req.userName,
-        ...updateData
+        ...updateData,
+        profile: normalizePatientProfilePhones(updateData.profile || {})
       });
     } else {
       // Update existing profile
       if (updateData.profile) {
-        Object.assign(patient.profile, updateData.profile);
+        Object.assign(patient.profile, normalizePatientProfilePhones(updateData.profile));
       }
       if (updateData.medicalHistory) {
         patient.medicalHistory = updateData.medicalHistory;
@@ -774,5 +776,34 @@ exports.syncPatient = async (req, res) => {
   } catch (error) {
     console.error('Sync patient error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getPatientInternalProfile = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    const patient = await Patient.findOne({ userId: patientId })
+      .select('userId email username profile.firstName profile.lastName profile.phone');
+
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        userId: patient.userId,
+        email: patient.email || '',
+        phone: normalizeSriLankanPhone(patient.profile?.phone || ''),
+        name:
+          `${patient.profile?.firstName || ''} ${patient.profile?.lastName || ''}`.trim() ||
+          patient.username ||
+          patient.email
+      }
+    });
+  } catch (error) {
+    console.error('Get patient internal profile error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { normalizeSriLankanPhone } = require('../utils/phone');
 
 const MedicalReportSchema = new mongoose.Schema({
   title: {
@@ -166,7 +167,8 @@ const PatientSchema = new mongoose.Schema({
     },
     phone: {
       type: String,
-      default: ''
+      default: '',
+      set: normalizeSriLankanPhone
     },
     address: {
       street: String,
@@ -177,7 +179,10 @@ const PatientSchema = new mongoose.Schema({
     },
     emergencyContact: {
       name: String,
-      phone: String,
+      phone: {
+        type: String,
+        set: normalizeSriLankanPhone
+      },
       relationship: String
     },
     height: {

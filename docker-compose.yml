@@ -106,6 +106,7 @@ services:
       - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/patient-service_db
 
       - JWT_SECRET=secret
+      - INTERNAL_SERVICE_SECRET=secret
 
     networks:
 
@@ -157,6 +158,8 @@ services:
 
       - DOCTOR_SERVICE_URL=http://doctor-service:5003
 
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5004
+
       - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:5007
 
       - INTERNAL_SERVICE_SECRET=secret
@@ -199,7 +202,11 @@ services:
 
       - JWT_SECRET=secret
 
+      - INTERNAL_SERVICE_SECRET=secret
+      - EMAIL_FROM=no-reply@smartmedicare.local
+
     networks:
+      - smartcare-net
 
 
 
