@@ -21,6 +21,7 @@ import { PatientProfilePage } from './pages/patient/PatientProfilePage';
 import { DoctorDashboardPage } from './pages/doctor/DashboardPage';
 import { DoctorAvailabilityPage } from './pages/doctor/AvailabilityPage';
 import { DoctorProfilePage } from './pages/doctor/ProfilePage';
+import { PatientsPage } from './pages/doctor/PatientsPage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/DashboardPage';
@@ -103,7 +104,7 @@ export function App() {
             />
             <Route
               path="/doctor/patients"
-              element={<PlaceholderPage title="Patient Records" />}
+              element={<PatientsPage />}
             />
           </Route>
 
