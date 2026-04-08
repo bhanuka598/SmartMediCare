@@ -1,6 +1,7 @@
 const Patient = require('../models/Patient');
 const appointmentService = require('../services/appointmentService');
 const telemedicineService = require('../services/telemedicineService');
+const { normalizePatientProfilePhones, normalizeSriLankanPhone } = require('../utils/phone');
 
 const hasDoctorPatientRelationship = async (doctorId, patientId, token) => {
   const result = await appointmentService.getDoctorAppointments(doctorId, token, {
@@ -78,12 +79,13 @@ exports.updateProfile = async (req, res) => {
         userId,
         email: req.userEmail,
         username: req.userName,
-        ...updateData
+        ...updateData,
+        profile: normalizePatientProfilePhones(updateData.profile || {})
       });
     } else {
       // Update existing profile
       if (updateData.profile) {
-        Object.assign(patient.profile, updateData.profile);
+        Object.assign(patient.profile, normalizePatientProfilePhones(updateData.profile));
       }
       if (updateData.medicalHistory) {
         patient.medicalHistory = updateData.medicalHistory;
@@ -793,7 +795,7 @@ exports.getPatientInternalProfile = async (req, res) => {
       data: {
         userId: patient.userId,
         email: patient.email || '',
-        phone: patient.profile?.phone || '',
+        phone: normalizeSriLankanPhone(patient.profile?.phone || ''),
         name:
           `${patient.profile?.firstName || ''} ${patient.profile?.lastName || ''}`.trim() ||
           patient.username ||
