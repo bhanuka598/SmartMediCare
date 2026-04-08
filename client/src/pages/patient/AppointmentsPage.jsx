@@ -73,6 +73,7 @@ export function AppointmentsPage() {
   const [cancelLoading, setCancelLoading] = useState(null);
   const [joinLoading, setJoinLoading] = useState(null);
   const [payLoading, setPayLoading] = useState(null);
+  const [paymentSyncing, setPaymentSyncing] = useState(false);
   const [trackingStatus, setTrackingStatus] = useState({});
 
   const { user } = useAuth();
@@ -82,15 +83,18 @@ export function AppointmentsPage() {
     const params = new URLSearchParams(location.search);
     const status = params.get('payment');
     const appointmentId = params.get('appointmentId');
+    const isSyncing = params.get('syncing') === 'true';
 
     if (!status) return null;
 
     if (status === 'success') {
       return {
-        tone: 'green',
+        tone: isSyncing ? 'blue' : 'green',
         message: appointmentId
-          ? `Payment completed successfully for appointment ${appointmentId.slice(-6)}.`
-          : 'Payment completed successfully.'
+          ? (isSyncing
+            ? `Finalizing payment for appointment ${appointmentId.slice(-6)}...`
+            : `Payment completed successfully for appointment ${appointmentId.slice(-6)}.`)
+          : (isSyncing ? 'Finalizing payment...' : 'Payment completed successfully.')
       };
     }
 
@@ -148,6 +152,68 @@ export function AppointmentsPage() {
   useEffect(() => {
     fetchAppointments();
   }, [patientId, activeTab]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const status = params.get('payment');
+    const sessionId = params.get('session_id');
+    const appointmentId = params.get('appointmentId');
+
+    if (status !== 'success' || !appointmentId || !patientId || paymentSyncing) {
+      return;
+    }
+
+    const syncAppointmentPayment = async () => {
+      try {
+        setPaymentSyncing(true);
+        const headers = {
+          'Authorization': `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        };
+
+        let response = await fetch(
+          `${API_URL}/api/payments/appointments/${encodeURIComponent(appointmentId)}/sync`,
+          { headers }
+        );
+
+        let data = await response.json();
+
+        if ((!response.ok || !data.success) && sessionId) {
+          response = await fetch(
+            `${API_URL}/api/payments/verify-session?sessionId=${encodeURIComponent(sessionId)}`,
+            { headers }
+          );
+
+          data = await response.json();
+        }
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || 'Failed to verify payment session');
+        }
+
+        await fetchAppointments();
+
+        const nextParams = new URLSearchParams(location.search);
+        nextParams.delete('session_id');
+        nextParams.delete('syncing');
+        navigate(`${location.pathname}?${nextParams.toString()}`, { replace: true });
+      } catch (err) {
+        console.error('Error verifying payment session:', err);
+        setError(err.message);
+      } finally {
+        setPaymentSyncing(false);
+      }
+    };
+
+    const nextParams = new URLSearchParams(location.search);
+    if (nextParams.get('syncing') !== 'true') {
+      nextParams.set('syncing', 'true');
+      navigate(`${location.pathname}?${nextParams.toString()}`, { replace: true });
+      return;
+    }
+
+    syncAppointmentPayment();
+  }, [location.search, location.pathname, navigate, patientId, paymentSyncing]);
 
   useEffect(() => {
     if (!paymentFeedback) return;

@@ -5,6 +5,8 @@ const { protect, adminOnly, patientOnly } = require("../middleware/authMiddlewar
 const router = express.Router();
 
 router.get("/config", paymentController.getPaymentConfig);
+router.get("/verify-session", protect, paymentController.verifyCheckoutSession);
+router.get("/appointments/:appointmentId/sync", protect, paymentController.syncAppointmentPayment);
 router.post("/checkout-session", protect, patientOnly, paymentController.createCheckoutSession);
 router.get("/transactions", protect, paymentController.getTransactions);
 router.get("/transactions/:id", protect, paymentController.getTransactionById);

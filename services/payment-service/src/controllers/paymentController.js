@@ -174,6 +174,171 @@ exports.handleWebhook = async (req, res) => {
   }
 };
 
+exports.verifyCheckoutSession = async (req, res) => {
+  try {
+    if (!isStripeConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: "Stripe is not configured for the payment service"
+      });
+    }
+
+    const { sessionId } = req.query;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: "sessionId is required"
+      });
+    }
+
+    const transaction = await Transaction.findOne({ stripeCheckoutSessionId: sessionId });
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found for this checkout session"
+      });
+    }
+
+    if (req.userRole !== "admin" && transaction.patientId !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only verify your own payment session"
+      });
+    }
+
+    const stripe = require("../services/stripeService").getStripeClient();
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status === "paid") {
+      if (transaction.status !== "completed") {
+        transaction.status = "completed";
+        transaction.stripePaymentIntentId = session.payment_intent || "";
+        transaction.paidAt = transaction.paidAt || new Date();
+        await transaction.save();
+
+        await updateAppointmentPaymentStatus(transaction.appointmentId, {
+          paymentStatus: "PAID",
+          paymentReference: session.payment_intent || session.id,
+          paidAt: transaction.paidAt
+        });
+      }
+
+      return res.json({
+        success: true,
+        verified: true,
+        paymentStatus: "PAID",
+        transaction
+      });
+    }
+
+    return res.json({
+      success: true,
+      verified: false,
+      paymentStatus: transaction.status === "completed" ? "PAID" : "PENDING",
+      transaction
+    });
+  } catch (error) {
+    console.error("Verify checkout session error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to verify checkout session",
+      error: error.message
+    });
+  }
+};
+
+exports.syncAppointmentPayment = async (req, res) => {
+  try {
+    if (!isStripeConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: "Stripe is not configured for the payment service"
+      });
+    }
+
+    const { appointmentId } = req.params;
+
+    const transaction = await Transaction.findOne({ appointmentId }).sort({ createdAt: -1 });
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "No payment transaction found for this appointment"
+      });
+    }
+
+    if (req.userRole !== "admin" && transaction.patientId !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only sync your own appointment payments"
+      });
+    }
+
+    if (transaction.status === "completed") {
+      await updateAppointmentPaymentStatus(appointmentId, {
+        paymentStatus: "PAID",
+        paymentReference: transaction.stripePaymentIntentId || transaction.stripeCheckoutSessionId || "",
+        paidAt: transaction.paidAt || new Date()
+      });
+
+      return res.json({
+        success: true,
+        synced: true,
+        paymentStatus: "PAID",
+        transaction
+      });
+    }
+
+    if (!transaction.stripeCheckoutSessionId) {
+      return res.json({
+        success: true,
+        synced: false,
+        paymentStatus: "PENDING",
+        transaction
+      });
+    }
+
+    const stripe = require("../services/stripeService").getStripeClient();
+    const session = await stripe.checkout.sessions.retrieve(transaction.stripeCheckoutSessionId);
+
+    if (session.payment_status === "paid") {
+      transaction.status = "completed";
+      transaction.stripePaymentIntentId = session.payment_intent || transaction.stripePaymentIntentId || "";
+      transaction.paidAt = transaction.paidAt || new Date();
+      await transaction.save();
+
+      await updateAppointmentPaymentStatus(appointmentId, {
+        paymentStatus: "PAID",
+        paymentReference: session.payment_intent || session.id,
+        paidAt: transaction.paidAt
+      });
+
+      return res.json({
+        success: true,
+        synced: true,
+        paymentStatus: "PAID",
+        transaction
+      });
+    }
+
+    return res.json({
+      success: true,
+      synced: false,
+      paymentStatus: "PENDING",
+      transaction
+    });
+  } catch (error) {
+    console.error("Sync appointment payment error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to sync appointment payment",
+      error: error.message
+    });
+  }
+};
+
 exports.getTransactions = async (req, res) => {
   try {
     const query = req.userRole === "admin" ? {} : { patientId: req.userId };
