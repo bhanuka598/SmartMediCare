@@ -27,6 +27,29 @@ import {
 import { Button } from '../../components/shared/Button';
 
 const API_URL = 'http://localhost:5000';
+const SRI_LANKA_CODE = '+94';
+
+const normalizeSriLankanPhone = (value) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return SRI_LANKA_CODE;
+
+  if (trimmed.startsWith(SRI_LANKA_CODE)) {
+    return `${SRI_LANKA_CODE}${digits.slice(2)}`;
+  }
+
+  if (digits.startsWith('94')) {
+    return `${SRI_LANKA_CODE}${digits.slice(2)}`;
+  }
+
+  if (digits.startsWith('0')) {
+    return `${SRI_LANKA_CODE}${digits.slice(1)}`;
+  }
+
+  return `${SRI_LANKA_CODE}${digits}`;
+};
 
 export function PatientProfilePage() {
   const { user } = useAuth();
@@ -126,6 +149,9 @@ export function PatientProfilePage() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const normalizedValue = name === 'phone' || name === 'emergencyContact.phone'
+      ? normalizeSriLankanPhone(value)
+      : value;
     
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
@@ -133,13 +159,13 @@ export function PatientProfilePage() {
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: value
+          [child]: normalizedValue
         }
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: value
+        [name]: normalizedValue
       }));
     }
   };
@@ -513,7 +539,7 @@ export function PatientProfilePage() {
                   value={formData.phone}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  placeholder="Enter phone number"
+                  placeholder="+94771234567"
                 />
               ) : (
                 <p className="text-slate-900">{formData.phone || 'Not set'}</p>
@@ -665,7 +691,7 @@ export function PatientProfilePage() {
                   value={formData.emergencyContact.phone}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  placeholder="Enter phone number"
+                  placeholder="+94771234567"
                 />
               ) : (
                 <p className="text-slate-900">{formData.emergencyContact.phone || 'Not set'}</p>
