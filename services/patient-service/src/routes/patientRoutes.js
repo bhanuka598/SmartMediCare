@@ -1,8 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, adminMiddleware } = require('../middleware/authMiddleware');
+const { authMiddleware, doctorMiddleware, adminMiddleware } = require('../middleware/authMiddleware');
 const patientController = require('../controllers/patientController');
 const symptomController = require('../controllers/symptomController');
+
+// Doctor access routes
+router.get('/doctor-access/patients/:patientId/reports', doctorMiddleware, patientController.getPatientReportsForDoctor);
+router.get('/doctor-access/patients/:patientId/prescriptions', doctorMiddleware, patientController.getPatientPrescriptionsForDoctor);
+router.post('/doctor-access/patients/:patientId/prescriptions', doctorMiddleware, patientController.issuePrescriptionForPatient);
 
 // All routes require authentication
 router.use(authMiddleware);

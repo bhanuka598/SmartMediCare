@@ -6,6 +6,7 @@ import {
   Filter,
   Calendar,
   FileText,
+  ClipboardList,
   Phone,
   Mail,
   MoreVertical,
@@ -25,7 +26,9 @@ import {
   Check,
   Ban,
   Play,
-  UserX
+  UserX,
+  ExternalLink,
+  Pill
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -674,12 +677,13 @@ export function PatientsPage() {
 
       {/* Patient Details Modal */}
       {isModalOpen && selectedPatient && (
-        <PatientDetailsModal
-          patient={selectedPatient}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedPatient(null);
-          }}
+          <PatientDetailsModal
+            patient={selectedPatient}
+            token={token}
+            onClose={() => {
+              setIsModalOpen(false);
+              setSelectedPatient(null);
+            }}
           formatDate={formatDate}
           onAcceptAppointment={handleAcceptAppointment}
           onRejectAppointment={handleRejectAppointment}
@@ -691,7 +695,25 @@ export function PatientsPage() {
 }
 
 // Patient Details Modal Component
-function PatientDetailsModal({ patient, onClose, formatDate, onAcceptAppointment, onRejectAppointment, actionLoading }) {
+function PatientDetailsModal({ patient, token, onClose, formatDate, onAcceptAppointment, onRejectAppointment, actionLoading }) {
+  const [reports, setReports] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [detailsLoading, setDetailsLoading] = useState(true);
+  const [detailsError, setDetailsError] = useState(null);
+  const [issuingPrescription, setIssuingPrescription] = useState(false);
+  const [prescriptionError, setPrescriptionError] = useState(null);
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    appointmentId: '',
+    diagnosis: '',
+    medicationName: '',
+    dosage: '',
+    frequency: '',
+    duration: '',
+    instructions: '',
+    notes: '',
+    followUpDate: ''
+  });
+
   // Close on escape key
   useEffect(() => {
     const handleEscape = (e) => {
@@ -704,6 +726,53 @@ function PatientDetailsModal({ patient, onClose, formatDate, onAcceptAppointment
       document.body.style.overflow = 'unset';
     };
   }, [onClose]);
+
+  useEffect(() => {
+    const fetchPatientResources = async () => {
+      try {
+        setDetailsLoading(true);
+        setDetailsError(null);
+
+        const [reportsResponse, prescriptionsResponse] = await Promise.all([
+          fetch(`${API_URL}/api/doctors/patients/${patient.id}/reports`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${API_URL}/api/doctors/patients/${patient.id}/prescriptions`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
+
+        const reportsResult = await reportsResponse.json().catch(() => ({}));
+        const prescriptionsResult = await prescriptionsResponse.json().catch(() => ({}));
+
+        if (!reportsResponse.ok) {
+          throw new Error(reportsResult.message || 'Failed to fetch patient reports');
+        }
+
+        if (!prescriptionsResponse.ok) {
+          throw new Error(prescriptionsResult.message || 'Failed to fetch patient prescriptions');
+        }
+
+        setReports(reportsResult.data || []);
+        setPrescriptions(prescriptionsResult.data || []);
+      } catch (error) {
+        console.error('Error fetching patient resources:', error);
+        setDetailsError(error.message || 'Failed to load patient records');
+      } finally {
+        setDetailsLoading(false);
+      }
+    };
+
+    if (patient?.id && token) {
+      fetchPatientResources();
+    }
+  }, [patient?.id, token]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -742,6 +811,77 @@ function PatientDetailsModal({ patient, onClose, formatDate, onAcceptAppointment
   const sortedAppointments = [...(patient.appointments || [])].sort((a, b) => 
     new Date(b.appointmentDate) - new Date(a.appointmentDate)
   );
+
+  const availableAppointments = sortedAppointments.filter((appointment) =>
+    ['CONFIRMED', 'COMPLETED', 'IN_PROGRESS'].includes(appointment.status)
+  );
+
+  const handlePrescriptionFieldChange = (field, value) => {
+    setPrescriptionForm((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleIssuePrescription = async (event) => {
+    event.preventDefault();
+
+    const medication = {
+      name: prescriptionForm.medicationName.trim(),
+      dosage: prescriptionForm.dosage.trim(),
+      frequency: prescriptionForm.frequency.trim(),
+      duration: prescriptionForm.duration.trim(),
+      instructions: prescriptionForm.instructions.trim()
+    };
+
+    if (!prescriptionForm.diagnosis.trim() || !medication.name) {
+      setPrescriptionError('Diagnosis and medication name are required');
+      return;
+    }
+
+    try {
+      setIssuingPrescription(true);
+      setPrescriptionError(null);
+
+      const response = await fetch(`${API_URL}/api/doctors/patients/${patient.id}/prescriptions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          appointmentId: prescriptionForm.appointmentId || null,
+          diagnosis: prescriptionForm.diagnosis.trim(),
+          medications: [medication],
+          notes: prescriptionForm.notes.trim(),
+          followUpDate: prescriptionForm.followUpDate || null
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to issue prescription');
+      }
+
+      setPrescriptions((prev) => [result.data, ...prev]);
+      setPrescriptionForm({
+        appointmentId: '',
+        diagnosis: '',
+        medicationName: '',
+        dosage: '',
+        frequency: '',
+        duration: '',
+        instructions: '',
+        notes: '',
+        followUpDate: ''
+      });
+    } catch (error) {
+      console.error('Error issuing prescription:', error);
+      setPrescriptionError(error.message || 'Failed to issue prescription');
+    } finally {
+      setIssuingPrescription(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -815,6 +955,246 @@ function PatientDetailsModal({ patient, onClose, formatDate, onAcceptAppointment
                 {sortedAppointments.filter(a => ['CONFIRMED', 'PENDING'].includes(a.status)).length}
               </p>
               <p className="text-sm text-slate-600">Upcoming</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <FileText size={20} />
+                Patient Uploaded Reports
+              </h3>
+
+              {detailsLoading ? (
+                <div className="flex items-center gap-2 text-slate-500 p-4 bg-slate-50 rounded-lg">
+                  <Loader2 size={16} className="animate-spin" />
+                  Loading reports...
+                </div>
+              ) : detailsError ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {detailsError}
+                </div>
+              ) : reports.length > 0 ? (
+                <div className="space-y-3">
+                  {reports.map((report) => (
+                    <div
+                      key={report._id}
+                      className="p-4 border border-slate-200 rounded-lg bg-white"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-900">{report.title}</p>
+                          <p className="text-sm text-slate-500">
+                            {report.category || 'other'} • {report.fileType || 'file'}
+                          </p>
+                          {report.description && (
+                            <p className="text-sm text-slate-600 mt-2">{report.description}</p>
+                          )}
+                          <p className="text-xs text-slate-400 mt-2">
+                            Uploaded {formatDate(report.uploadedAt)}
+                          </p>
+                        </div>
+                        <a
+                          href={report.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Open <ExternalLink size={14} />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-500">
+                  No patient-uploaded reports available yet.
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <ClipboardList size={20} />
+                  Digital Prescriptions
+                </h3>
+
+                {detailsLoading ? (
+                  <div className="flex items-center gap-2 text-slate-500 p-4 bg-slate-50 rounded-lg">
+                    <Loader2 size={16} className="animate-spin" />
+                    Loading prescriptions...
+                  </div>
+                ) : prescriptions.length > 0 ? (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {prescriptions.map((prescription) => (
+                      <div
+                        key={prescription.prescriptionId || prescription._id}
+                        className="p-4 border border-slate-200 rounded-lg bg-white"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-slate-900">{prescription.diagnosis}</p>
+                            <p className="text-sm text-slate-500">
+                              {prescription.doctorName} • {formatDate(prescription.createdAt)}
+                            </p>
+                          </div>
+                          <Badge variant="success">{prescription.status || 'active'}</Badge>
+                        </div>
+                        {prescription.medications?.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {prescription.medications.map((medication, index) => (
+                              <div key={`${prescription.prescriptionId}-${index}`} className="text-sm text-slate-600">
+                                <span className="font-medium text-slate-800">{medication.name}</span>
+                                {medication.dosage ? ` • ${medication.dosage}` : ''}
+                                {medication.frequency ? ` • ${medication.frequency}` : ''}
+                                {medication.duration ? ` • ${medication.duration}` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {prescription.notes && (
+                          <p className="text-sm text-slate-600 mt-3">
+                            <span className="font-medium">Notes:</span> {prescription.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-500">
+                    No prescriptions issued for this patient yet.
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-slate-200 rounded-xl p-5 bg-slate-50">
+                <h4 className="text-base font-semibold text-slate-900 flex items-center gap-2 mb-4">
+                  <Pill size={18} />
+                  Issue New Prescription
+                </h4>
+
+                <form className="space-y-4" onSubmit={handleIssuePrescription}>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Related Appointment</label>
+                    <select
+                      value={prescriptionForm.appointmentId}
+                      onChange={(e) => handlePrescriptionFieldChange('appointmentId', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">General prescription</option>
+                      {availableAppointments.map((appointment) => (
+                        <option key={appointment._id} value={appointment._id}>
+                          {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Diagnosis</label>
+                    <input
+                      type="text"
+                      value={prescriptionForm.diagnosis}
+                      onChange={(e) => handlePrescriptionFieldChange('diagnosis', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter diagnosis"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Medication</label>
+                      <input
+                        type="text"
+                        value={prescriptionForm.medicationName}
+                        onChange={(e) => handlePrescriptionFieldChange('medicationName', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Medication name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Dosage</label>
+                      <input
+                        type="text"
+                        value={prescriptionForm.dosage}
+                        onChange={(e) => handlePrescriptionFieldChange('dosage', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. 500mg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Frequency</label>
+                      <input
+                        type="text"
+                        value={prescriptionForm.frequency}
+                        onChange={(e) => handlePrescriptionFieldChange('frequency', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. Twice daily"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Duration</label>
+                      <input
+                        type="text"
+                        value={prescriptionForm.duration}
+                        onChange={(e) => handlePrescriptionFieldChange('duration', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. 5 days"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Instructions</label>
+                    <input
+                      type="text"
+                      value={prescriptionForm.instructions}
+                      onChange={(e) => handlePrescriptionFieldChange('instructions', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g. After meals"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                    <textarea
+                      rows={3}
+                      value={prescriptionForm.notes}
+                      onChange={(e) => handlePrescriptionFieldChange('notes', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Additional advice for the patient"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Follow-up Date</label>
+                    <input
+                      type="date"
+                      value={prescriptionForm.followUpDate}
+                      onChange={(e) => handlePrescriptionFieldChange('followUpDate', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {prescriptionError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      {prescriptionError}
+                    </div>
+                  )}
+
+                  <Button type="submit" className="w-full" disabled={issuingPrescription}>
+                    {issuingPrescription ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        Issuing prescription...
+                      </span>
+                    ) : (
+                      'Issue Digital Prescription'
+                    )}
+                  </Button>
+                </form>
+              </div>
             </div>
           </div>
 

@@ -1,5 +1,14 @@
 const appointmentService = require('../services/appointmentService');
 const telemedicineService = require('../services/telemedicineService');
+const patientService = require('../services/patientService');
+
+const verifyDoctorPatientAccess = async (doctorId, patientId, token) => {
+  const appointments = await appointmentService.getDoctorAppointments(doctorId, token, {
+    limit: 1000
+  });
+
+  return (appointments.data || []).some((appointment) => appointment.patientId === patientId);
+};
 
 /**
  * Get all appointments for the authenticated doctor
@@ -553,6 +562,125 @@ exports.endTelemedicineSession = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to end telemedicine session',
+      error: error.message
+    });
+  }
+};
+
+exports.getPatientReports = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const hasAccess = await verifyDoctorPatientAccess(userId, patientId, token);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to access this patient'
+      });
+    }
+
+    const result = await patientService.getPatientReports(patientId, token);
+    return res.json(result);
+  } catch (error) {
+    console.error('Get patient reports error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch patient reports',
+      error: error.message
+    });
+  }
+};
+
+exports.getPatientPrescriptions = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const hasAccess = await verifyDoctorPatientAccess(userId, patientId, token);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to access this patient'
+      });
+    }
+
+    const result = await patientService.getPatientPrescriptions(patientId, token);
+    return res.json(result);
+  } catch (error) {
+    console.error('Get patient prescriptions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch patient prescriptions',
+      error: error.message
+    });
+  }
+};
+
+exports.issuePrescription = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { appointmentId, diagnosis, symptoms, medications, notes, followUpDate } = req.body;
+    const { userId, userName } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const hasAccess = await verifyDoctorPatientAccess(userId, patientId, token);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to issue a prescription for this patient'
+      });
+    }
+
+    let appointment = null;
+    if (appointmentId) {
+      const appointmentResult = await appointmentService.getAppointmentById(appointmentId, token);
+      if (!appointmentResult.success || !appointmentResult.data) {
+        return res.status(404).json({ success: false, message: 'Appointment not found' });
+      }
+
+      if (appointmentResult.data.doctorId !== userId || appointmentResult.data.patientId !== patientId) {
+        return res.status(403).json({
+          success: false,
+          message: 'This appointment does not belong to the selected patient'
+        });
+      }
+
+      appointment = appointmentResult.data;
+    }
+
+    const payload = {
+      appointmentId: appointmentId || null,
+      doctorName: appointment?.doctorName || userName || 'Doctor',
+      doctorSpecialization: appointment?.specialty || '',
+      diagnosis,
+      symptoms,
+      medications,
+      notes,
+      followUpDate
+    };
+
+    const result = await patientService.issuePrescription(patientId, token, payload);
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error('Issue prescription error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to issue prescription',
       error: error.message
     });
   }

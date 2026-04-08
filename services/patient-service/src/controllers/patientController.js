@@ -2,6 +2,16 @@ const Patient = require('../models/Patient');
 const appointmentService = require('../services/appointmentService');
 const telemedicineService = require('../services/telemedicineService');
 
+const hasDoctorPatientRelationship = async (doctorId, patientId, token) => {
+  const result = await appointmentService.getDoctorAppointments(doctorId, token, {
+    limit: 1000
+  });
+
+  return (result.data || []).some((appointment) => appointment.patientId === patientId);
+};
+
+const buildPrescriptionId = () => `RX-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
 // Get or create patient profile
 exports.getOrCreateProfile = async (req, res) => {
   try {
@@ -505,6 +515,169 @@ exports.joinTelemedicineConsultation = async (req, res) => {
       message: 'Failed to join video consultation',
       error: error.message
     });
+  }
+};
+
+exports.getPatientReportsForDoctor = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { category } = req.query;
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Authentication token required' });
+    }
+
+    const isRelatedPatient = await hasDoctorPatientRelationship(userId, patientId, token);
+    if (!isRelatedPatient) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to access this patient\'s reports'
+      });
+    }
+
+    const patient = await Patient.findOne({ userId: patientId });
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    let reports = patient.medicalReports || [];
+    if (category && category !== 'all') {
+      reports = reports.filter((report) => report.category === category);
+    }
+
+    reports.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+
+    return res.json({
+      success: true,
+      data: reports,
+      count: reports.length
+    });
+  } catch (error) {
+    console.error('Get patient reports for doctor error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+exports.getPatientPrescriptionsForDoctor = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Authentication token required' });
+    }
+
+    const isRelatedPatient = await hasDoctorPatientRelationship(userId, patientId, token);
+    if (!isRelatedPatient) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to access this patient\'s prescriptions'
+      });
+    }
+
+    const patient = await Patient.findOne({ userId: patientId });
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const prescriptions = [...(patient.prescriptions || [])].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    return res.json({
+      success: true,
+      data: prescriptions,
+      count: prescriptions.length
+    });
+  } catch (error) {
+    console.error('Get patient prescriptions for doctor error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+exports.issuePrescriptionForPatient = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { userId, userName } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const {
+      appointmentId,
+      doctorName,
+      doctorSpecialization,
+      diagnosis,
+      symptoms = [],
+      medications = [],
+      notes = '',
+      followUpDate = null
+    } = req.body;
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Authentication token required' });
+    }
+
+    if (!diagnosis || !Array.isArray(medications) || medications.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Diagnosis and at least one medication are required'
+      });
+    }
+
+    const isRelatedPatient = await hasDoctorPatientRelationship(userId, patientId, token);
+    if (!isRelatedPatient) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to issue prescriptions for this patient'
+      });
+    }
+
+    if (appointmentId) {
+      const appointment = await appointmentService.getAppointmentById(appointmentId, token);
+      if (!appointment.success || !appointment.data) {
+        return res.status(404).json({ success: false, message: 'Appointment not found' });
+      }
+
+      if (appointment.data.patientId !== patientId || appointment.data.doctorId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'This appointment does not belong to the specified patient'
+        });
+      }
+    }
+
+    const patient = await Patient.findOne({ userId: patientId });
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const prescription = {
+      prescriptionId: buildPrescriptionId(),
+      doctorId: userId,
+      doctorName: doctorName || userName || 'Doctor',
+      doctorSpecialization: doctorSpecialization || '',
+      appointmentId: appointmentId || null,
+      diagnosis,
+      symptoms,
+      medications,
+      notes,
+      followUpDate: followUpDate || null,
+      status: 'active',
+      createdAt: new Date()
+    };
+
+    patient.prescriptions.push(prescription);
+    await patient.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Prescription issued successfully',
+      data: prescription
+    });
+  } catch (error) {
+    console.error('Issue prescription for patient error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
