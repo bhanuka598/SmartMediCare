@@ -1,5 +1,5 @@
 const Appointment = require("../models/Appointment");
-const { searchDoctorsBySpecialtyFromDoctorService, getDoctorAvailability } = require("./doctorService");
+const { searchDoctorsBySpecialtyFromDoctorService, getAllDoctorsFromDoctorService, getDoctorAvailability } = require("./doctorService");
 const { getPatientById } = require("./patientService");
 const { createTelemedicineSession } = require("./telemedicineService");
 
@@ -100,6 +100,14 @@ const createAppointment = async (appointmentData, userId) => {
       data: appointment
     };
   } catch (error) {
+    if (error?.code === 11000) {
+      return {
+        success: false,
+        message: "This doctor already has an appointment at this time slot",
+        error: error.message
+      };
+    }
+
     return {
       success: false,
       message: "Error creating appointment",
@@ -110,14 +118,10 @@ const createAppointment = async (appointmentData, userId) => {
 
 const searchDoctors = async (specialty, filters = {}) => {
   try {
-    if (!specialty) {
-      return {
-        success: false,
-        message: "Specialty is required"
-      };
-    }
-
-    const doctors = await searchDoctorsBySpecialtyFromDoctorService(specialty);
+    // If no specialty provided, fetch all doctors
+    const doctors = specialty 
+      ? await searchDoctorsBySpecialtyFromDoctorService(specialty)
+      : await getAllDoctorsFromDoctorService();
 
     if (!doctors.success) {
       return {
@@ -132,8 +136,9 @@ const searchDoctors = async (specialty, filters = {}) => {
     if (filters.available === "true") {
       const availableDoctors = [];
       for (const doctor of doctorList) {
-        const availability = await getDoctorAvailability(doctor._id || doctor.id);
-        if (availability.success && availability.data?.isAvailable) {
+        const doctorIdentifier = doctor.userId || doctor.id || doctor._id;
+        const availability = await getDoctorAvailability(doctorIdentifier);
+        if (availability.success && Array.isArray(availability.availability) && availability.availability.length > 0) {
           availableDoctors.push(doctor);
         }
       }
@@ -143,8 +148,15 @@ const searchDoctors = async (specialty, filters = {}) => {
     if (filters.date) {
       const availableDoctors = [];
       for (const doctor of doctorList) {
-        const availability = await getDoctorAvailability(doctor._id || doctor.id);
-        if (availability.success && availability.data?.availableDates?.includes(filters.date)) {
+        const doctorIdentifier = doctor.userId || doctor.id || doctor._id;
+        const availability = await getDoctorAvailability(doctorIdentifier);
+        const hasAvailabilityOnDate = Array.isArray(availability.availability) &&
+          availability.availability.some((schedule) => {
+            const scheduleDate = new Date(schedule.date).toISOString().split("T")[0];
+            return scheduleDate === filters.date && Array.isArray(schedule.timeSlots) && schedule.timeSlots.length > 0;
+          });
+
+        if (availability.success && hasAvailabilityOnDate) {
           availableDoctors.push(doctor);
         }
       }
@@ -724,7 +736,19 @@ const getAvailableSlots = async (doctorId, date) => {
       end: a.endTime
     }));
 
-    const allSlots = availability.data?.timeSlots || [];
+    const dailyAvailability = Array.isArray(availability.availability)
+      ? availability.availability.find((schedule) => {
+          const scheduleDate = new Date(schedule.date).toISOString().split("T")[0];
+          return scheduleDate === date;
+        })
+      : null;
+
+    const allSlots = Array.isArray(dailyAvailability?.timeSlots)
+      ? dailyAvailability.timeSlots.map((slot) => ({
+          start: slot.startTime,
+          end: slot.endTime
+        }))
+      : [];
     const availableSlots = allSlots.filter(slot => {
       return !bookedSlots.some(booked =>
         (slot.start >= booked.start && slot.start < booked.end) ||

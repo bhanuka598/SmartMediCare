@@ -349,6 +349,27 @@ exports.searchDoctors = async (req, res) => {
   }
 };
 
+// Get all doctors (internal endpoint for appointment service)
+exports.getAllDoctors = async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+
+    const doctors = await Doctor.find({ isActive: true })
+      .select('userId profile.firstName profile.lastName profile.avatar profile.languages professional.specialization professional.yearsOfExperience practice.hospital practice.consultationFee practice.currency ratings.averageRating ratings.totalReviews isVerified')
+      .sort({ 'ratings.averageRating': -1 })
+      .limit(parseInt(limit));
+
+    res.json({
+      success: true,
+      doctors,
+      count: doctors.length
+    });
+  } catch (error) {
+    console.error('Get all doctors error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Get all specializations
 exports.getSpecializations = async (req, res) => {
   try {

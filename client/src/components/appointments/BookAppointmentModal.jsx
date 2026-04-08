@@ -4,7 +4,7 @@ import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
 import { Card } from '../shared/Card';
 
-const API_URL = 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const SPECIALTIES = [
   'Cardiology',
@@ -26,6 +26,28 @@ const TIME_SLOTS = [
 
 const getToken = () => localStorage.getItem('token');
 
+const normalizeDoctor = (doctor) => ({
+  ...doctor,
+  id: doctor.id || doctor.userId || doctor._id,
+  userId: doctor.userId || doctor.id || doctor._id,
+  name:
+    doctor.name ||
+    doctor.fullName ||
+    `${doctor.profile?.firstName || ''} ${doctor.profile?.lastName || ''}`.trim() ||
+    doctor.username ||
+    'Dr. Unknown',
+  specialty:
+    doctor.specialty ||
+    doctor.professional?.specialization ||
+    'General Medicine',
+  image:
+    doctor.image ||
+    doctor.profile?.avatar ||
+    doctor.profileImage ||
+    'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
+  experience: doctor.experience || doctor.professional?.yearsOfExperience || doctor.yearsOfExperience || 0
+});
+
 export function BookAppointmentModal({ 
   isOpen, 
   onClose, 
@@ -38,9 +60,9 @@ export function BookAppointmentModal({
 }) {
   const [step, setStep] = useState(preSelectedDoctor ? 2 : 1); // Skip to step 2 if doctor pre-selected
   const [selectedSpecialty, setSelectedSpecialty] = useState(preSelectedDoctor?.specialty || '');
-  const [doctors, setDoctors] = useState(preSelectedDoctor ? [preSelectedDoctor] : []);
+  const [doctors, setDoctors] = useState(preSelectedDoctor ? [normalizeDoctor(preSelectedDoctor)] : []);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
-  const [selectedDoctor, setSelectedDoctor] = useState(preSelectedDoctor);
+  const [selectedDoctor, setSelectedDoctor] = useState(preSelectedDoctor ? normalizeDoctor(preSelectedDoctor) : null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [appointmentType, setAppointmentType] = useState('IN_PERSON');
@@ -56,8 +78,8 @@ export function BookAppointmentModal({
       if (preSelectedDoctor) {
         setStep(2);
         setSelectedSpecialty(preSelectedDoctor.specialty);
-        setDoctors([preSelectedDoctor]);
-        setSelectedDoctor(preSelectedDoctor);
+        setDoctors([normalizeDoctor(preSelectedDoctor)]);
+        setSelectedDoctor(normalizeDoctor(preSelectedDoctor));
       } else {
         setStep(1);
         setSelectedSpecialty('');
@@ -99,7 +121,8 @@ export function BookAppointmentModal({
       
       if (data.success) {
         // Backend returns data directly, not nested in data.data
-        const doctorList = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+        const doctorList = (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []))
+          .map(normalizeDoctor);
         console.log('Found doctors:', doctorList.length);
         setDoctors(doctorList);
         if (doctorList.length === 0) {
@@ -123,7 +146,7 @@ export function BookAppointmentModal({
   const fetchAvailableSlots = async () => {
     if (!selectedDoctor || !selectedDate) return;
     
-    const doctorId = selectedDoctor._id || selectedDoctor.id;
+    const doctorId = selectedDoctor.userId || selectedDoctor.id || selectedDoctor._id;
     if (!doctorId) {
       setAvailableSlots(TIME_SLOTS);
       return;
@@ -132,8 +155,9 @@ export function BookAppointmentModal({
     setLoadingSlots(true);
     try {
       const response = await fetch(
-        `${API_URL}/api/appointments/doctors/${doctorId}/availability?date=${selectedDate}`,
+        `${API_URL}/api/appointments/doctors/${doctorId}/slots?date=${selectedDate}`,
         {
+          cache: 'no-store',
           headers: {
             'Authorization': `Bearer ${getToken()}`,
             'Content-Type': 'application/json'
@@ -146,8 +170,10 @@ export function BookAppointmentModal({
       // Handle different response formats
       let slots = [];
       if (data.success && data.data) {
-        // Backend returns { success: true, data: { availableSlots: [...] } }
-        slots = data.data.availableSlots || data.data.slots || [];
+        // Normalize backend slot objects into simple "HH:mm" strings for the UI.
+        slots = (data.data.availableSlots || data.data.slots || []).map((slot) =>
+          typeof slot === 'string' ? slot : slot.start || slot.startTime
+        ).filter(Boolean);
       }
       
       // If no slots returned or error, use default time slots
@@ -169,16 +195,29 @@ export function BookAppointmentModal({
 
   // Submit appointment
   const submitAppointment = async () => {
+    const resolvedPatientId = patientId;
+    const resolvedDoctorId = selectedDoctor?.userId || selectedDoctor?.id || selectedDoctor?._id;
+
+    if (!resolvedPatientId) {
+      setError('Your patient account details are missing. Please sign in again and try booking.');
+      return;
+    }
+
+    if (!resolvedDoctorId || !selectedDoctor?.specialty || !selectedDate || !selectedTime) {
+      setError('Please select a doctor, date, and time slot before booking.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     
     try {
       const appointmentData = {
-        patientId,
+        patientId: resolvedPatientId,
         patientName,
         patientEmail,
         patientPhone,
-        doctorId: selectedDoctor._id || selectedDoctor.id,
+        doctorId: resolvedDoctorId,
         doctorName: selectedDoctor.name,
         specialty: selectedDoctor.specialty,
         appointmentDate: selectedDate,
@@ -204,11 +243,11 @@ export function BookAppointmentModal({
       
       const data = await response.json();
       
-      if (data.success) {
+      if (response.ok && data.success) {
         setStep(4); // Success step
         onSuccess?.(data.data);
       } else {
-        setError(data.message || 'Failed to book appointment');
+        setError(data.message || data.error || 'Failed to book appointment');
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -338,9 +377,9 @@ export function BookAppointmentModal({
                   <div className="space-y-3 max-h-64 overflow-y-auto">
                     {doctors.map((doctor) => (
                       <Card
-                        key={doctor._id || doctor.id}
+                        key={doctor.userId || doctor.id || doctor._id}
                         className={`cursor-pointer transition-all ${
-                          (selectedDoctor?._id || selectedDoctor?.id) === (doctor._id || doctor.id)
+                          (selectedDoctor?.userId || selectedDoctor?.id || selectedDoctor?._id) === (doctor.userId || doctor.id || doctor._id)
                             ? 'ring-2 ring-blue-500 bg-blue-50'
                             : 'hover:bg-slate-50'
                         }`}
@@ -348,18 +387,18 @@ export function BookAppointmentModal({
                       >
                         <div className="p-4 flex items-center gap-4">
                           <img
-                            src={doctor.image || doctor.profileImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'}
+                            src={doctor.image}
                             alt={doctor.name}
                             className="h-12 w-12 rounded-full object-cover"
                           />
                           <div className="flex-1">
                             <h4 className="font-semibold text-slate-900">{doctor.name}</h4>
                             <p className="text-sm text-slate-500">{doctor.specialty}</p>
-                            {(doctor.experience || doctor.yearsOfExperience) && (
-                              <p className="text-xs text-slate-400">{doctor.experience || doctor.yearsOfExperience} years experience</p>
+                            {doctor.experience > 0 && (
+                              <p className="text-xs text-slate-400">{doctor.experience} years experience</p>
                             )}
                           </div>
-                          {(selectedDoctor?._id || selectedDoctor?.id) === (doctor._id || doctor.id) && (
+                          {(selectedDoctor?.userId || selectedDoctor?.id || selectedDoctor?._id) === (doctor.userId || doctor.id || doctor._id) && (
                             <CheckCircle className="h-5 w-5 text-blue-600" />
                           )}
                         </div>

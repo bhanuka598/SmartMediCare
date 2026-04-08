@@ -44,6 +44,7 @@ router.delete('/availability/clear/old', availabilityController.clearOldSchedule
 router.use('/sync', serviceAuthMiddleware);
 router.use('/internal', serviceAuthMiddleware);
 
+router.get('/internal/all', doctorController.getAllDoctors);
 router.post('/sync', doctorController.syncDoctor);
 router.post('/internal/:doctorId/book', availabilityController.bookTimeSlot);
 router.post('/internal/:doctorId/release', availabilityController.releaseTimeSlot);

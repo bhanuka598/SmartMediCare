@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Calendar as CalendarIcon, Loader2, AlertCircle, Activity, Plus } from 'lucide-react';
-import { io } from 'socket.io-client';
+import React, { useState, useEffect } from 'react';
+import { Calendar as CalendarIcon, Loader2, AlertCircle, Plus } from 'lucide-react';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
 import { Button } from '../../components/shared/Button';
 import { useAuth } from '../../contexts/AuthContext';
 
-const API_URL = 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Helper to get auth token
 const getToken = () => localStorage.getItem('token');
@@ -69,9 +68,7 @@ export function AppointmentsPage() {
   const [error, setError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(null);
   const [joinLoading, setJoinLoading] = useState(null);
-  const [socketConnected, setSocketConnected] = useState(false);
   const [trackingStatus, setTrackingStatus] = useState({});
-  const socketRef = useRef(null);
 
   const { user, isAuthenticated } = useAuth();
   const patientId = user?.id || user?._id;
@@ -89,14 +86,11 @@ export function AppointmentsPage() {
       setLoading(true);
       setError(null);
 
-      const token = getToken();
-      const statusParam = activeTab === 'upcoming' ? 'CONFIRMED,PENDING,IN_PROGRESS' : 'COMPLETED,CANCELLED,REJECTED,NO_SHOW';
-      
       const response = await fetch(
         `${API_URL}/api/appointments/my-appointments?sortBy=dateAsc`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${getToken()}`,
             'Content-Type': 'application/json'
           }
         }
@@ -125,71 +119,18 @@ export function AppointmentsPage() {
     fetchAppointments();
   }, [patientId, activeTab]);
 
-  // Setup WebSocket connection for real-time updates
+  // Poll for appointment updates instead of using WebSocket.
   useEffect(() => {
     if (!patientId) return;
 
-    const socket = io(API_URL, {
-      transports: ['websocket'],
-      auth: {
-        token: getToken()
-      }
-    });
-
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('Connected to appointment service');
-      setSocketConnected(true);
-      
-      // Join as patient
-      socket.emit('join', {
-        userId: patientId,
-        role: 'patient'
-      });
-    });
-
-    socket.on('disconnect', () => {
-      console.log('Disconnected from appointment service');
-      setSocketConnected(false);
-    });
-
-    socket.on('appointment-update', (data) => {
-      console.log('Appointment update received:', data);
-      // Refresh appointments when status changes
+    const intervalId = setInterval(() => {
       fetchAppointments();
-    });
-
-    socket.on('status-change', (data) => {
-      console.log('Status change received:', data);
-      setTrackingStatus(prev => ({
-        ...prev,
-        [data.appointmentId]: data
-      }));
-      fetchAppointments();
-    });
-
-    socket.on('queue-update', (data) => {
-      console.log('Queue update received:', data);
-      setTrackingStatus(prev => ({
-        ...prev,
-        [data.appointmentId]: data
-      }));
-    });
-
-    socket.on('reminder', (data) => {
-      console.log('Reminder received:', data);
-      // Could show a toast notification here
-    });
-
-    socket.on('error', (error) => {
-      console.error('Socket error:', error);
-    });
+    }, 15000);
 
     return () => {
-      socket.disconnect();
+      clearInterval(intervalId);
     };
-  }, [patientId]);
+  }, [patientId, activeTab]);
 
   // Cancel appointment
   const handleCancel = async (appointmentId) => {
@@ -344,10 +285,33 @@ export function AppointmentsPage() {
     originalData: app // Keep original data for reference
   });
 
-  // Start tracking an appointment for real-time updates
-  const startTracking = (appointmentId) => {
-    if (socketRef.current) {
-      socketRef.current.emit('track-appointment', appointmentId);
+  // Refresh a single appointment's status on demand.
+  const refreshAppointmentStatus = async (appointmentId) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/api/appointments/${appointmentId}/status`,
+        {
+          headers: {
+            'Authorization': `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh appointment status');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setTrackingStatus(prev => ({
+          ...prev,
+          [appointmentId]: data.data
+        }));
+        fetchAppointments();
+      }
+    } catch (err) {
+      console.error('Error refreshing appointment status:', err);
     }
   };
 
@@ -407,16 +371,9 @@ export function AppointmentsPage() {
             Manage your upcoming and past consultations.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-            socketConnected 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-amber-100 text-amber-700'
-          }`}>
-            <Activity className="h-3.5 w-3.5" />
-            {socketConnected ? 'Live Updates' : 'Connecting...'}
-          </div>
-        </div>
+        <Button variant="outline" size="sm" onClick={fetchAppointments}>
+          Refresh
+        </Button>
       </div>
 
       <div className="border-b border-slate-200">
@@ -461,7 +418,7 @@ export function AppointmentsPage() {
               onCancel={(id) => handleCancel(id)}
               onViewNotes={(id) => handleViewNotes(id)}
               onRate={(id, rating, feedback) => handleRate(id, rating, feedback)}
-              onTrack={() => startTracking(appointment.id)}
+              onTrack={() => refreshAppointmentStatus(appointment.id)}
               isJoinLoading={joinLoading === appointment.id}
               isCancelLoading={cancelLoading === appointment.id}
             />
@@ -477,15 +434,6 @@ export function AppointmentsPage() {
             <p className="text-slate-500">
               You don't have any {activeTab} appointments at the moment.
             </p>
-            {activeTab === 'upcoming' && (
-              <Button 
-                className="mt-4 gap-2" 
-                onClick={() => setIsBookModalOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Book an Appointment
-              </Button>
-            )}
           </div>
         )}
       </div>

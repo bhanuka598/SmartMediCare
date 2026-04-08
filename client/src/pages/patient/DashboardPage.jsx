@@ -111,14 +111,14 @@ export function PatientDashboardPage() {
           3,
           15000
         );
-        if (apptData.success && apptData.appointments?.length > 0) {
-          const appt = apptData.appointments[0];
+        if (apptData.success && apptData.data?.length > 0) {
+          const appt = apptData.data[0];
           setUpcomingAppointment({
             id: appt._id,
             doctorName: appt.doctorName || `Dr. ${appt.doctorId?.slice(-4) || 'Unknown'}`,
             specialty: appt.specialty || 'General',
-            date: new Date(appt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            time: appt.time,
+            date: new Date(appt.appointmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            time: appt.appointmentTime,
             status: appt.status,
             type: appt.type || 'video',
             doctorImage: appt.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'

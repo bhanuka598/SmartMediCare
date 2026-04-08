@@ -216,7 +216,7 @@ appointmentSchema.index({ patientId: 1, appointmentDate: 1 });
 appointmentSchema.index({ status: 1, appointmentDate: 1 });
 appointmentSchema.index({ createdAt: -1 });
 
-appointmentSchema.pre("save", function(next) {
+appointmentSchema.pre("save", function() {
   if (this.isModified("status")) {
     this.statusHistory.push({
       status: this.status,
@@ -225,7 +225,6 @@ appointmentSchema.pre("save", function(next) {
       reason: this._changeReason || ""
     });
   }
-  next();
 });
 
 appointmentSchema.methods.canBeModified = function() {

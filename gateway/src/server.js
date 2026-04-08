@@ -102,14 +102,14 @@ app.use('/api/auth', authProxy);
 app.use('/api/appointments', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.appointment,
-  pathRewrite: { '^/api/appointments': '/api/appointments' }
+  pathRewrite: (path) => `/api/appointments${path}`
 }));
 
 // Doctor Service
 app.use('/api/doctors', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.doctor,
-  pathRewrite: { '^/api/doctors': '/api/doctors' }
+  pathRewrite: (path) => `/api/doctors${path}`
 }));
 
 // Patient Service (singular) - must come before plural
@@ -144,21 +144,21 @@ app.use('/api/patients', createProxyMiddleware({
 app.use('/api/payments', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.payment,
-  pathRewrite: { '^/api/payments': '/api/payments' }
+  pathRewrite: (path) => `/api/payments${path}`
 }));
 
 // Telemedicine Service
 app.use('/api/telemedicine', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.telemedicine,
-  pathRewrite: { '^/api/telemedicine': '/api/telemedicine' }
+  pathRewrite: (path) => `/api/telemedicine${path}`
 }));
 
 // Notification Service
 app.use('/api/notifications', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.notification,
-  pathRewrite: { '^/api/notifications': '/api/notifications' }
+  pathRewrite: (path) => `/api/notifications${path}`
 }));
 
 // 404 handler

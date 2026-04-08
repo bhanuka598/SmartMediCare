@@ -1,5 +1,4 @@
 const appointmentService = require("../services/appointmentService");
-const realtimeTrackingService = require("../services/realtimeTrackingService");
 
 exports.searchDoctorsBySpecialty = async (req, res) => {
   try {
@@ -21,17 +20,23 @@ exports.searchDoctorsBySpecialty = async (req, res) => {
 exports.createAppointment = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
+    console.log("[appointment-service] createAppointment payload:", {
+      userId,
+      body: req.body
+    });
     const result = await appointmentService.createAppointment(req.body, userId);
-
-    if (result.success && result.data) {
-      realtimeTrackingService.broadcastToUser(result.data.patientId, "new-appointment", {
-        appointmentId: result.data._id,
-        message: "New appointment created"
-      });
+    if (!result.success) {
+      console.warn("[appointment-service] createAppointment rejected:", result);
     }
 
     return res.status(result.success ? 201 : 400).json(result);
   } catch (error) {
+    console.error("[appointment-service] createAppointment error:", {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+      userId: req.userId || req.user?.id || req.user?._id
+    });
     return res.status(500).json({
       success: false,
       message: "Error creating appointment",
@@ -129,15 +134,6 @@ exports.updateAppointment = async (req, res) => {
     const userId = req.userId || req.user?.id || req.user?._id;
     const result = await appointmentService.updateAppointment(req.params.id, req.body, userId);
 
-    if (result.success && result.data) {
-      await realtimeTrackingService.notifyStatusChange(
-        result.data._id.toString(),
-        result.data.status,
-        result.data.status,
-        userId
-      );
-    }
-
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
@@ -156,15 +152,6 @@ exports.cancelAppointment = async (req, res) => {
 
     const result = await appointmentService.cancelAppointment(req.params.id, reason, cancelledBy, userId);
 
-    if (result.success && result.data) {
-      await realtimeTrackingService.notifyStatusChange(
-        result.data._id.toString(),
-        result.data.status,
-        "CANCELLED",
-        userId
-      );
-    }
-
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
@@ -179,20 +166,6 @@ exports.confirmAppointment = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
     const result = await appointmentService.confirmAppointment(req.params.id, userId);
-
-    if (result.success && result.data) {
-      await realtimeTrackingService.notifyStatusChange(
-        result.data._id.toString(),
-        "PENDING",
-        "CONFIRMED",
-        userId
-      );
-
-      realtimeTrackingService.updateQueueStatus(
-        result.data.doctorId,
-        result.data.appointmentDate
-      );
-    }
 
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
@@ -210,15 +183,6 @@ exports.rejectAppointment = async (req, res) => {
     const { reason } = req.body;
     const result = await appointmentService.rejectAppointment(req.params.id, reason, userId);
 
-    if (result.success && result.data) {
-      await realtimeTrackingService.notifyStatusChange(
-        result.data._id.toString(),
-        "PENDING",
-        "REJECTED",
-        userId
-      );
-    }
-
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
@@ -235,15 +199,6 @@ exports.completeAppointment = async (req, res) => {
     const { notes, prescription } = req.body;
     const result = await appointmentService.completeAppointment(req.params.id, notes, prescription, userId);
 
-    if (result.success && result.data) {
-      await realtimeTrackingService.notifyStatusChange(
-        result.data._id.toString(),
-        result.data.status,
-        "COMPLETED",
-        userId
-      );
-    }
-
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
@@ -259,20 +214,6 @@ exports.markInProgress = async (req, res) => {
     const userId = req.userId || req.user?.id || req.user?._id;
     const result = await appointmentService.markInProgress(req.params.id, userId);
 
-    if (result.success && result.data) {
-      await realtimeTrackingService.notifyStatusChange(
-        result.data._id.toString(),
-        "CONFIRMED",
-        "IN_PROGRESS",
-        userId
-      );
-
-      realtimeTrackingService.updateQueueStatus(
-        result.data.doctorId,
-        result.data.appointmentDate
-      );
-    }
-
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     return res.status(500).json({
@@ -287,15 +228,6 @@ exports.markNoShow = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
     const result = await appointmentService.markNoShow(req.params.id, userId);
-
-    if (result.success && result.data) {
-      await realtimeTrackingService.notifyStatusChange(
-        result.data._id.toString(),
-        result.data.status,
-        "NO_SHOW",
-        userId
-      );
-    }
 
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
