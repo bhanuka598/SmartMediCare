@@ -1,4 +1,5 @@
 const appointmentService = require('../services/appointmentService');
+const telemedicineService = require('../services/telemedicineService');
 
 /**
  * Get all appointments for the authenticated doctor
@@ -458,6 +459,100 @@ exports.getAppointmentStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch appointment statistics',
+      error: error.message
+    });
+  }
+};
+
+exports.getTelemedicineSession = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const appointment = await appointmentService.getAppointmentById(appointmentId, token);
+    if (!appointment.success) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    if (appointment.data?.doctorId !== userId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to access this session' });
+    }
+
+    const session = await telemedicineService.getSessionByAppointmentId(appointmentId, token);
+    return res.json(session);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch telemedicine session',
+      error: error.message
+    });
+  }
+};
+
+exports.startTelemedicineSession = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const appointment = await appointmentService.getAppointmentById(appointmentId, token);
+    if (!appointment.success) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    if (appointment.data?.doctorId !== userId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to start this session' });
+    }
+
+    if (appointment.data?.type !== 'TELEMEDICINE') {
+      return res.status(400).json({ success: false, message: 'This appointment is not a telemedicine session' });
+    }
+
+    const session = await telemedicineService.createSession(appointment.data, token);
+    return res.json(session);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to start telemedicine session',
+      error: error.message
+    });
+  }
+};
+
+exports.endTelemedicineSession = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const appointment = await appointmentService.getAppointmentById(appointmentId, token);
+    if (!appointment.success) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    if (appointment.data?.doctorId !== userId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to end this session' });
+    }
+
+    const session = await telemedicineService.endSession(appointmentId, token);
+    return res.json(session);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to end telemedicine session',
       error: error.message
     });
   }

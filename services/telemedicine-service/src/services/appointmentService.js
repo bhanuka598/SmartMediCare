@@ -119,7 +119,7 @@ const verifyAppointment = async (appointmentId, patientId, doctorId) => {
     }
 
     // Check if appointment type supports telemedicine
-    if (appointment.type && appointment.type !== "ONLINE") {
+    if (appointment.type && appointment.type !== "TELEMEDICINE") {
       return {
         valid: false,
         message: `Appointment type '${appointment.type}' does not support telemedicine`
