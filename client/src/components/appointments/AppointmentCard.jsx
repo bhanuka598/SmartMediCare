@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, Video, FileText } from 'lucide-react';
+import { Calendar, Clock, Video, FileText, Loader2 } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { Card, CardContent } from '../shared/Card';
 import { Badge } from '../shared/Badge';
@@ -8,7 +8,9 @@ export function AppointmentCard({
   appointment,
   onJoin,
   onCancel,
-  onViewNotes
+  onViewNotes,
+  isJoinLoading = false,
+  isCancelLoading = false
 }) {
   const statusConfig = {
     upcoming: {
@@ -93,17 +95,29 @@ export function AppointmentCard({
                     variant="outline"
                     size="sm"
                     onClick={() => onCancel?.(appointment.id)}
+                    disabled={isCancelLoading}
                     className="flex-1 sm:flex-none"
                   >
-                    Cancel
+                    {isCancelLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      'Cancel'
+                    )}
                   </Button>
 
                   <Button
                     size="sm"
                     onClick={() => onJoin?.(appointment.id)}
+                    disabled={isJoinLoading}
                     className="flex-1 sm:flex-none gap-2"
                   >
-                    <Video className="h-4 w-4" /> Join Call
+                    {isJoinLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Video className="h-4 w-4" /> Join Call
+                      </>
+                    )}
                   </Button>
                 </>
               )}

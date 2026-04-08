@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, FileText, Download, Trash2, Search, Pill, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, Download, Trash2, Search, Pill, AlertCircle, Loader2, Calendar, UserRound } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import {
@@ -213,7 +213,8 @@ export function MedicalRecordsPage() {
   // Filter prescriptions
   const filteredPrescriptions = prescriptions.filter(prescription =>
     prescription.diagnosis?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    prescription.doctorName?.toLowerCase().includes(searchQuery.toLowerCase())
+    prescription.doctorName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    prescription.medications?.some((med) => med.name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Get category badge color
@@ -502,41 +503,47 @@ export function MedicalRecordsPage() {
                     filteredPrescriptions.map((prescription) => (
                       <div
                         key={prescription._id || prescription.prescriptionId}
-                        className="p-4 hover:bg-slate-50 transition-colors"
+                        className="p-5 hover:bg-slate-50 transition-colors"
                       >
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-start justify-between mb-3">
                           <div>
-                            <p className="font-medium text-slate-900">
+                            <p className="font-medium text-slate-900 text-base">
                               {prescription.diagnosis}
                             </p>
-                            <p className="text-sm text-slate-500">
-                              Dr. {prescription.doctorName}
+                            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 mt-2">
+                              <span className="inline-flex items-center gap-1">
+                                <UserRound className="h-4 w-4" />
+                                Dr. {prescription.doctorName}
+                              </span>
                               {prescription.doctorSpecialization && (
-                                <span className="text-slate-400"> • {prescription.doctorSpecialization}</span>
+                                <span>{prescription.doctorSpecialization}</span>
                               )}
-                            </p>
+                              <span className="inline-flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                {formatDate(prescription.createdAt)}
+                              </span>
+                            </div>
                           </div>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(prescription.status)}`}>
                             {prescription.status}
                           </span>
                         </div>
 
-                        <p className="text-xs text-slate-400 mb-3">
-                          {formatDate(prescription.createdAt)}
-                        </p>
-
                         {/* Medications */}
                         {prescription.medications && prescription.medications.length > 0 && (
-                          <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                          <div className="bg-slate-50 rounded-lg p-3 space-y-3">
                             <p className="text-xs font-medium text-slate-700 uppercase tracking-wide">
                               Medications
                             </p>
                             {prescription.medications.map((med, idx) => (
-                              <div key={idx} className="text-sm">
+                              <div key={idx} className="text-sm border-l-2 border-green-200 pl-3">
                                 <span className="font-medium text-slate-900">{med.name}</span>
-                                <span className="text-slate-500"> • {med.dosage}</span>
+                                {med.dosage ? <span className="text-slate-500"> • {med.dosage}</span> : null}
                                 {med.frequency && (
                                   <span className="text-slate-400"> • {med.frequency}</span>
+                                )}
+                                {med.duration && (
+                                  <span className="text-slate-400"> • {med.duration}</span>
                                 )}
                                 {med.instructions && (
                                   <p className="text-xs text-slate-400 mt-0.5">{med.instructions}</p>

@@ -31,6 +31,19 @@ import {
 } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 
+const SPECIALTIES = [
+  'Cardiology',
+  'Dermatology',
+  'Neurology',
+  'Orthopedics',
+  'Pediatrics',
+  'Psychiatry',
+  'General Medicine',
+  'ENT',
+  'Ophthalmology',
+  'Gynecology'
+];
+
 const API_URL = 'http://localhost:5000';
 
 export function DoctorProfilePage() {
@@ -696,14 +709,17 @@ export function DoctorProfilePage() {
                     Primary Specialization
                   </label>
                   {isEditing ? (
-                    <input
-                      type="text"
+                    <select
                       name="specialization"
                       value={formData.specialization}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                      placeholder="e.g., Cardiology, Pediatrics"
-                    />
+                    >
+                      <option value="">Select specialization</option>
+                      {SPECIALTIES.map((specialty) => (
+                        <option key={specialty} value={specialty}>{specialty}</option>
+                      ))}
+                    </select>
                   ) : (
                     <p className="text-slate-900">{formData.specialization || 'Not set'}</p>
                   )}
