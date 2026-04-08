@@ -363,3 +363,29 @@ exports.getAppointmentWithSession = async (req, res) => {
     });
   }
 };
+
+exports.getAppointmentPaymentContext = async (req, res) => {
+  try {
+    const result = await appointmentService.getAppointmentPaymentContext(req.params.id);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching appointment payment context",
+      error: error.message
+    });
+  }
+};
+
+exports.updateAppointmentPaymentStatus = async (req, res) => {
+  try {
+    const result = await appointmentService.updateAppointmentPaymentStatus(req.params.id, req.body);
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error updating appointment payment status",
+      error: error.message
+    });
+  }
+};

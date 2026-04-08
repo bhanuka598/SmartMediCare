@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, Video, FileText, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Video, FileText, Loader2, CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { Card, CardContent } from '../shared/Card';
 import { Badge } from '../shared/Badge';
@@ -8,7 +8,9 @@ export function AppointmentCard({
   appointment,
   onJoin,
   onCancel,
+  onPay,
   onViewNotes,
+  isPayLoading = false,
   isJoinLoading = false,
   isCancelLoading = false
 }) {
@@ -28,6 +30,30 @@ export function AppointmentCard({
   };
 
   const { variant, label } = statusConfig[appointment.status];
+  const paymentConfig = {
+    PAID: {
+      icon: CheckCircle2,
+      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      label: 'Paid'
+    },
+    PENDING: {
+      icon: AlertCircle,
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
+      label: 'Unpaid'
+    },
+    FAILED: {
+      icon: AlertCircle,
+      className: 'bg-red-50 text-red-700 border-red-200',
+      label: 'Payment Failed'
+    },
+    REFUNDED: {
+      icon: CheckCircle2,
+      className: 'bg-sky-50 text-sky-700 border-sky-200',
+      label: 'Refunded'
+    }
+  };
+  const paymentState = paymentConfig[appointment.paymentStatus] || paymentConfig.PENDING;
+  const PaymentIcon = paymentState.icon;
 
   return (
     <Card className="overflow-hidden">
@@ -83,11 +109,39 @@ export function AppointmentCard({
                     </>
                   )}
                 </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${paymentState.className}`}>
+                    <PaymentIcon className="h-3.5 w-3.5" />
+                    {paymentState.label}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {appointment.currency} {appointment.feeDisplay}
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="w-full sm:w-auto flex gap-2 mt-2 sm:mt-0">
+            <div className="w-full sm:w-auto flex flex-wrap gap-2 mt-2 sm:mt-0">
+
+              {appointment.paymentStatus !== 'PAID' && appointment.fee > 0 && appointment.rawStatus !== 'CANCELLED' && appointment.rawStatus !== 'REJECTED' && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onPay?.(appointment.id)}
+                  disabled={isPayLoading}
+                  className="flex-1 sm:flex-none gap-2"
+                >
+                  {isPayLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4" /> Pay Now
+                    </>
+                  )}
+                </Button>
+              )}
 
               {appointment.status === 'upcoming' && (
                 <>
@@ -108,7 +162,7 @@ export function AppointmentCard({
                   <Button
                     size="sm"
                     onClick={() => onJoin?.(appointment.id)}
-                    disabled={isJoinLoading}
+                    disabled={isJoinLoading || (appointment.type === 'video' && appointment.paymentStatus !== 'PAID')}
                     className="flex-1 sm:flex-none gap-2"
                   >
                     {isJoinLoading ? (

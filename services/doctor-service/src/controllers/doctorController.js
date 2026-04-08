@@ -375,7 +375,7 @@ exports.getDoctorInternalProfile = async (req, res) => {
     const { doctorId } = req.params;
 
     const doctor = await Doctor.findOne({ userId: doctorId, isActive: true })
-      .select("userId email username profile.firstName profile.lastName profile.phone professional.specialization practice.hospital");
+      .select("userId email username profile.firstName profile.lastName profile.phone professional.specialization practice.hospital practice.consultationFee practice.currency practice.consultationDuration");
 
     if (!doctor) {
       return res.status(404).json({ success: false, message: "Doctor not found" });
@@ -389,7 +389,10 @@ exports.getDoctorInternalProfile = async (req, res) => {
         phone: doctor.profile?.phone || "",
         name: doctor.fullName,
         specialty: doctor.professional?.specialization || "",
-        hospital: doctor.practice?.hospital || ""
+        hospital: doctor.practice?.hospital || "",
+        consultationFee: doctor.practice?.consultationFee || 0,
+        currency: doctor.practice?.currency || "USD",
+        consultationDuration: doctor.practice?.consultationDuration || 30
       }
     });
   } catch (error) {
