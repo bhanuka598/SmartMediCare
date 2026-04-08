@@ -15,7 +15,13 @@ import {
   Clock,
   Stethoscope,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  X,
+  MapPin,
+  Video,
+  CheckCircle,
+  XCircle,
+  Clock3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -42,6 +48,8 @@ export function PatientsPage() {
     todayAppointments: 0,
     newPatientsThisMonth: 0
   });
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch doctor's appointments and derive patients
   const fetchPatients = useCallback(async () => {
@@ -413,11 +421,16 @@ export function PatientsPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-2">
-                        <Link to={`/doctor/patients/${patient.id}`}>
-                          <Button variant="outline" size="sm">
-                            View
-                          </Button>
-                        </Link>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedPatient(patient);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          View
+                        </Button>
                         <button className="p-1 hover:bg-slate-100 rounded">
                           <MoreVertical size={18} className="text-slate-500" />
                         </button>
@@ -464,6 +477,220 @@ export function PatientsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Patient Details Modal */}
+      {isModalOpen && selectedPatient && (
+        <PatientDetailsModal
+          patient={selectedPatient}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedPatient(null);
+          }}
+          formatDate={formatDate}
+        />
+      )}
+    </div>
+  );
+}
+
+// Patient Details Modal Component
+function PatientDetailsModal({ patient, onClose, formatDate }) {
+  // Close on escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [onClose]);
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'COMPLETED':
+        return <CheckCircle size={16} className="text-green-600" />;
+      case 'CONFIRMED':
+        return <CheckCircle size={16} className="text-blue-600" />;
+      case 'PENDING':
+        return <Clock3 size={16} className="text-amber-600" />;
+      case 'CANCELLED':
+        return <XCircle size={16} className="text-red-600" />;
+      case 'REJECTED':
+        return <XCircle size={16} className="text-red-600" />;
+      default:
+        return <Clock size={16} className="text-slate-500" />;
+    }
+  };
+
+  const getStatusBadgeVariant = (status) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'success';
+      case 'CONFIRMED':
+        return 'info';
+      case 'PENDING':
+        return 'warning';
+      case 'CANCELLED':
+      case 'REJECTED':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
+  // Sort appointments by date (newest first)
+  const sortedAppointments = [...(patient.appointments || [])].sort((a, b) => 
+    new Date(b.appointmentDate) - new Date(a.appointmentDate)
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden m-4 animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xl">
+              {patient.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">{patient.name}</h2>
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <span>{patient.totalVisits} total visits</span>
+                <span>•</span>
+                <Badge variant={patient.status === 'active' ? 'success' : 'default'}>
+                  {patient.status === 'active' ? 'Active Patient' : 'Inactive'}
+                </Badge>
+              </div>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+          >
+            <X size={24} className="text-slate-500" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="overflow-y-auto max-h-[calc(90vh-200px)] p-6 space-y-6">
+          {/* Contact Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
+              <Mail size={20} className="text-blue-600" />
+              <div>
+                <p className="text-sm text-slate-500">Email</p>
+                <p className="font-medium text-slate-900">{patient.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
+              <Phone size={20} className="text-blue-600" />
+              <div>
+                <p className="text-sm text-slate-500">Phone</p>
+                <p className="font-medium text-slate-900">{patient.phone}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600">{patient.totalVisits}</p>
+              <p className="text-sm text-slate-600">Total Visits</p>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <p className="text-2xl font-bold text-green-600">
+                {sortedAppointments.filter(a => a.status === 'COMPLETED').length}
+              </p>
+              <p className="text-sm text-slate-600">Completed</p>
+            </div>
+            <div className="text-center p-4 bg-amber-50 rounded-lg">
+              <p className="text-2xl font-bold text-amber-600">
+                {sortedAppointments.filter(a => ['CONFIRMED', 'PENDING'].includes(a.status)).length}
+              </p>
+              <p className="text-sm text-slate-600">Upcoming</p>
+            </div>
+          </div>
+
+          {/* Appointment History */}
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <Calendar size={20} />
+              Appointment History
+            </h3>
+            
+            {sortedAppointments.length > 0 ? (
+              <div className="space-y-3">
+                {sortedAppointments.map((apt, index) => (
+                  <div 
+                    key={apt._id || index}
+                    className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(apt.status)}
+                          <span className="font-medium text-slate-900">
+                            {formatDate(apt.appointmentDate)}
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-slate-600">{apt.appointmentTime}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          {apt.type === 'TELEMEDICINE' ? (
+                            <><Video size={14} /> Video Call</>
+                          ) : (
+                            <><MapPin size={14} /> In-Person</>
+                          )}
+                          <span>•</span>
+                          <span>{apt.specialty}</span>
+                        </div>
+                        {apt.reason && (
+                          <p className="text-sm text-slate-600 mt-2">
+                            <span className="font-medium">Reason:</span> {apt.reason}
+                          </p>
+                        )}
+                        {apt.notes && (
+                          <p className="text-sm text-slate-600 mt-1">
+                            <span className="font-medium">Notes:</span> {apt.notes}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant={getStatusBadgeVariant(apt.status)}>
+                        {apt.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-center py-8 bg-slate-50 rounded-lg">
+                No appointment history available
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button className="gap-2">
+            <Calendar size={18} />
+            Book Appointment
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
