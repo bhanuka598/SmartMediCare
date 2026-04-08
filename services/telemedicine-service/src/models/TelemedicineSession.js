@@ -43,6 +43,10 @@ const telemedicineSessionSchema = new mongoose.Schema(
       type: String,
       enum: ["ACTIVE", "ENDED"],
       default: "ACTIVE"
+    },
+    endedAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }
