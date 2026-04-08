@@ -1,0 +1,141 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartmedicare-ingress
+  namespace: smartmedicare
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+spec:
+  rules:
+  - host: smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: client
+            port:
+              number: 5173
+      - path: /api/v1/
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway
+            port:
+              number: 5000
+  - host: gateway.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway
+            port:
+              number: 5000
+  - host: auth.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 5002
+  - host: patient.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: patient-service
+            port:
+              number: 5005
+  - host: doctor.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: doctor-service
+            port:
+              number: 5003
+  - host: appointment.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: appointment-service
+            port:
+              number: 5001
+  - host: notification.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: notification-service
+            port:
+              number: 5004
+  - host: payment.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: payment-service
+            port:
+              number: 5006
+  - host: telemedicine.smartmedicare.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: telemedicine-service
+            port:
+              number: 5007
+---
+# For local development without Ingress, use this to expose services
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-nodeport
+  namespace: smartmedicare
+  labels:
+    app: gateway
+spec:
+  selector:
+    app: gateway
+  ports:
+  - port: 5000
+    targetPort: 5000
+    nodePort: 30000
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: client-nodeport
+  namespace: smartmedicare
+  labels:
+    app: client
+spec:
+  selector:
+    app: client
+  ports:
+  - port: 5173
+    targetPort: 5173
+    nodePort: 30001
+  type: NodePort
