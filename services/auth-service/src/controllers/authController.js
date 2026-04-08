@@ -248,7 +248,8 @@ exports.verifyToken = async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    const user = await User.findById(decoded.userId).select('-password');
+    const userId = decoded.id || decoded.userId;
+    const user = await User.findById(userId).select('-password');
 
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Invalid token' });
