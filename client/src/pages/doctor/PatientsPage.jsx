@@ -21,7 +21,11 @@ import {
   Video,
   CheckCircle,
   XCircle,
-  Clock3
+  Clock3,
+  Check,
+  Ban,
+  Play,
+  UserX
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -50,6 +54,114 @@ export function PatientsPage() {
   });
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [actionLoading, setActionLoading] = useState(null); // appointmentId being processed
+
+  // Fetch pending appointment requests
+  const fetchPendingRequests = useCallback(async () => {
+    if (!user?.id || !token) return;
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/doctors/appointments/pending`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch pending requests:', errorData);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setPendingRequests(result.requests || []);
+      }
+    } catch (err) {
+      console.error('Error fetching pending requests:', err);
+    }
+  }, [user?.id, token]);
+
+  // Handle accept appointment
+  const handleAcceptAppointment = async (appointmentId) => {
+    if (!token) return;
+
+    try {
+      setActionLoading(appointmentId);
+      const response = await fetch(
+        `${API_URL}/api/doctors/appointments/${appointmentId}/accept`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to accept appointment');
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Refresh data
+        fetchPendingRequests();
+        fetchPatients();
+      }
+    } catch (err) {
+      console.error('Error accepting appointment:', err);
+      alert(err.message || 'Failed to accept appointment');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle reject appointment
+  const handleRejectAppointment = async (appointmentId) => {
+    if (!token) return;
+
+    const reason = prompt('Enter reason for rejection (optional):');
+    if (reason === null) return; // User cancelled
+
+    try {
+      setActionLoading(appointmentId);
+      const response = await fetch(
+        `${API_URL}/api/doctors/appointments/${appointmentId}/reject`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ reason })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to reject appointment');
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Refresh data
+        fetchPendingRequests();
+        fetchPatients();
+      }
+    } catch (err) {
+      console.error('Error rejecting appointment:', err);
+      alert(err.message || 'Failed to reject appointment');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   // Fetch doctor's appointments and derive patients
   const fetchPatients = useCallback(async () => {
@@ -59,9 +171,9 @@ export function PatientsPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch all appointments for this doctor
+      // Fetch all appointments for this doctor using doctor-service
       const response = await fetch(
-        `${API_URL}/api/appointments/doctor/${user.id}?limit=1000`,
+        `${API_URL}/api/doctors/appointments?limit=1000`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -201,7 +313,8 @@ export function PatientsPage() {
 
   useEffect(() => {
     fetchPatients();
-  }, [fetchPatients]);
+    fetchPendingRequests();
+  }, [fetchPatients, fetchPendingRequests]);
 
   const filteredPatients = patients.filter(patient => {
     const matchesSearch = patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -315,6 +428,87 @@ export function PatientsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending Appointment Requests */}
+      {pendingRequests.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Clock3 size={20} className="text-amber-600" />
+              Pending Appointment Requests
+              <Badge variant="warning" className="ml-2">
+                {pendingRequests.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pendingRequests.slice(0, 3).map((request) => (
+                <div
+                  key={request._id}
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200"
+                >
+                  <div className="flex items-center gap-4 mb-3 md:mb-0">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold">
+                      {request.patientName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">{request.patientName || 'Unknown Patient'}</p>
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Calendar size={14} />
+                        {formatDate(request.appointmentDate)} at {request.appointmentTime}
+                        <span className="text-slate-300">|</span>
+                        {request.type === 'TELEMEDICINE' ? (
+                          <><Video size={14} /> Video</>
+                        ) : (
+                          <><MapPin size={14} /> In-Person</>
+                        )}
+                      </div>
+                      {request.reason && (
+                        <p className="text-sm text-slate-600 mt-1">
+                          <span className="font-medium">Reason:</span> {request.reason}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:bg-red-50 border-red-200"
+                      onClick={() => handleRejectAppointment(request._id)}
+                      disabled={actionLoading === request._id}
+                    >
+                      {actionLoading === request._id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <><Ban size={16} className="mr-1" /> Reject</>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => handleAcceptAppointment(request._id)}
+                      disabled={actionLoading === request._id}
+                    >
+                      {actionLoading === request._id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <><Check size={16} className="mr-1" /> Accept</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {pendingRequests.length > 3 && (
+                <p className="text-center text-sm text-slate-500 py-2">
+                  + {pendingRequests.length - 3} more pending requests
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters and Search */}
       <Card>
@@ -487,6 +681,9 @@ export function PatientsPage() {
             setSelectedPatient(null);
           }}
           formatDate={formatDate}
+          onAcceptAppointment={handleAcceptAppointment}
+          onRejectAppointment={handleRejectAppointment}
+          actionLoading={actionLoading}
         />
       )}
     </div>
@@ -494,7 +691,7 @@ export function PatientsPage() {
 }
 
 // Patient Details Modal Component
-function PatientDetailsModal({ patient, onClose, formatDate }) {
+function PatientDetailsModal({ patient, onClose, formatDate, onAcceptAppointment, onRejectAppointment, actionLoading }) {
   // Close on escape key
   useEffect(() => {
     const handleEscape = (e) => {
@@ -663,6 +860,36 @@ function PatientDetailsModal({ patient, onClose, formatDate }) {
                           <p className="text-sm text-slate-600 mt-1">
                             <span className="font-medium">Notes:</span> {apt.notes}
                           </p>
+                        )}
+                        {/* Action buttons for pending appointments */}
+                        {apt.status === 'PENDING' && onAcceptAppointment && onRejectAppointment && (
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:bg-red-50 border-red-200"
+                              onClick={() => onRejectAppointment(apt._id)}
+                              disabled={actionLoading === apt._id}
+                            >
+                              {actionLoading === apt._id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <><Ban size={14} className="mr-1" /> Reject</>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => onAcceptAppointment(apt._id)}
+                              disabled={actionLoading === apt._id}
+                            >
+                              {actionLoading === apt._id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <><Check size={14} className="mr-1" /> Accept</>
+                              )}
+                            </Button>
+                          </div>
                         )}
                       </div>
                       <Badge variant={getStatusBadgeVariant(apt.status)}>

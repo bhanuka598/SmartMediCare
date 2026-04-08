@@ -10,6 +10,7 @@ const {
 } = require('../middleware/authMiddleware');
 const doctorController = require('../controllers/doctorController');
 const availabilityController = require('../controllers/availabilityController');
+const appointmentController = require('../controllers/appointmentController');
 
 // Public routes (no auth required)
 router.get('/search', doctorController.searchDoctors);
@@ -30,6 +31,17 @@ router.put('/profile/avatar', doctorController.updateAvatar);
 
 // Statistics
 router.get('/statistics', doctorController.getStatistics);
+
+// Appointment management routes
+router.get('/appointments', appointmentController.getMyAppointments);
+router.get('/appointments/pending', appointmentController.getPendingRequests);
+router.get('/appointments/today', appointmentController.getTodayAppointments);
+router.get('/appointments/stats', appointmentController.getAppointmentStats);
+router.patch('/appointments/:appointmentId/accept', appointmentController.acceptAppointment);
+router.patch('/appointments/:appointmentId/reject', appointmentController.rejectAppointment);
+router.patch('/appointments/:appointmentId/complete', appointmentController.completeAppointment);
+router.patch('/appointments/:appointmentId/in-progress', appointmentController.markInProgress);
+router.patch('/appointments/:appointmentId/no-show', appointmentController.markNoShow);
 
 // Availability routes
 router.get('/availability', availabilityController.getAvailabilitySchedule);
