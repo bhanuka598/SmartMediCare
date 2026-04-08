@@ -177,13 +177,13 @@ export function AppointmentsPage() {
   const handleJoin = async (appointmentId) => {
     try {
       setJoinLoading(appointmentId);
-      const token = getToken();
 
       const response = await fetch(
-        `${API_URL}/api/appointments/${appointmentId}/details`,
+        `${API_URL}/api/patient/consultations/${appointmentId}/join`,
         {
+          method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${getToken()}`,
             'Content-Type': 'application/json'
           }
         }
@@ -196,9 +196,10 @@ export function AppointmentsPage() {
       const data = await response.json();
       
       if (data.success && data.data) {
-        // Check if there's a meeting link in the appointment
-        const meetingLink = data.data.meetingLink || 
-          data.data.telemedicineSession?.meetingLink;
+        const meetingLink =
+          data.data.meetingLink ||
+          data.data.telemedicineSession?.meetingLink ||
+          data.data.appointment?.meetingLink;
         
         if (meetingLink) {
           window.open(meetingLink, '_blank');

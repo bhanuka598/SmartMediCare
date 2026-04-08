@@ -1,4 +1,6 @@
 const Patient = require('../models/Patient');
+const appointmentService = require('../services/appointmentService');
+const telemedicineService = require('../services/telemedicineService');
 
 // Get or create patient profile
 exports.getOrCreateProfile = async (req, res) => {
@@ -402,6 +404,107 @@ exports.getDashboardStats = async (req, res) => {
   } catch (error) {
     console.error('Get dashboard stats error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getMyTelemedicineConsultations = async (req, res) => {
+  try {
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Authentication token required' });
+    }
+
+    const patient = await Patient.findOne({ userId });
+    const consultations = (patient?.appointments || []).filter(
+      (appointment) => appointment.type === 'TELEMEDICINE'
+    );
+
+    return res.json({
+      success: true,
+      data: consultations,
+      count: consultations.length
+    });
+  } catch (error) {
+    console.error('Get telemedicine consultations error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+exports.getTelemedicineConsultation = async (req, res) => {
+  try {
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { appointmentId } = req.params;
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Authentication token required' });
+    }
+
+    const appointment = await appointmentService.getAppointmentById(appointmentId, token);
+    if (!appointment.success || !appointment.data) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    if (appointment.data.patientId !== userId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to access this consultation' });
+    }
+
+    if (appointment.data.type !== 'TELEMEDICINE') {
+      return res.status(400).json({ success: false, message: 'This appointment is not a video consultation' });
+    }
+
+    return res.json({
+      success: true,
+      data: appointment.data
+    });
+  } catch (error) {
+    console.error('Get telemedicine consultation error:', error);
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+exports.joinTelemedicineConsultation = async (req, res) => {
+  try {
+    const { userId } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { appointmentId } = req.params;
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Authentication token required' });
+    }
+
+    const appointment = await appointmentService.getAppointmentById(appointmentId, token);
+    if (!appointment.success || !appointment.data) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    if (appointment.data.patientId !== userId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to join this consultation' });
+    }
+
+    if (appointment.data.type !== 'TELEMEDICINE') {
+      return res.status(400).json({ success: false, message: 'This appointment is not a video consultation' });
+    }
+
+    const session = await telemedicineService.getSessionByAppointmentId(appointmentId, token);
+
+    return res.json({
+      success: true,
+      data: {
+        appointment: appointment.data,
+        telemedicineSession: session.data,
+        meetingLink: session.data?.meetingLink || appointment.data.meetingLink || null
+      }
+    });
+  } catch (error) {
+    console.error('Join telemedicine consultation error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to join video consultation',
+      error: error.message
+    });
   }
 };
 

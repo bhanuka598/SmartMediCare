@@ -31,6 +31,11 @@ router.post('/symptoms/analyze', symptomController.analyzeSymptoms);
 // Dashboard stats
 router.get('/dashboard/stats', patientController.getDashboardStats);
 
+// Telemedicine consultations
+router.get('/consultations', patientController.getMyTelemedicineConsultations);
+router.get('/consultations/:appointmentId', patientController.getTelemedicineConsultation);
+router.post('/consultations/:appointmentId/join', patientController.joinTelemedicineConsultation);
+
 // Internal sync endpoint (for auth-service)
 router.post('/sync', patientController.syncPatient);
 
