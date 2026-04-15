@@ -391,21 +391,50 @@ exports.deleteMedicalHistory = async (req, res) => {
 // Get dashboard stats
 exports.getDashboardStats = async (req, res) => {
   try {
-    const { userId } = req;
+    const { userId, userEmail, userName } = req;
+    const token = req.headers.authorization?.replace('Bearer ', '');
 
-    const patient = await Patient.findOne({ userId });
+    let patient = await Patient.findOne({ userId });
 
     if (!patient) {
-      return res.status(404).json({ message: 'Patient not found' });
+      patient = new Patient({
+        userId,
+        email: userEmail,
+        username: userName,
+        profile: {
+          firstName: '',
+          lastName: ''
+        }
+      });
+      await patient.save();
+    }
+
+    let totalAppointments = 0;
+    let completedAppointments = 0;
+
+    if (token) {
+      try {
+        const [allRes, completedRes] = await Promise.all([
+          appointmentService.getMyAppointments(token, { limit: 1 }),
+          appointmentService.getMyAppointments(token, { limit: 1, status: 'COMPLETED' })
+        ]);
+        if (allRes?.success && typeof allRes.total === 'number') {
+          totalAppointments = allRes.total;
+        }
+        if (completedRes?.success && typeof completedRes.total === 'number') {
+          completedAppointments = completedRes.total;
+        }
+      } catch (err) {
+        console.error('Dashboard stats: appointment service error:', err.message);
+      }
     }
 
     const stats = {
+      totalAppointments,
+      completedAppointments,
       totalReports: patient.medicalReports?.length || 0,
       totalPrescriptions: patient.prescriptions?.length || 0,
       medicalHistoryCount: patient.medicalHistory?.length || 0,
-      upcomingAppointments: patient.appointments?.filter(a => 
-        a.status === 'scheduled' && new Date(a.date) >= new Date()
-      ).length || 0,
       profileCompletion: calculateProfileCompletion(patient.profile)
     };
 
@@ -500,14 +529,33 @@ exports.joinTelemedicineConsultation = async (req, res) => {
       return res.status(400).json({ success: false, message: 'This appointment is not a video consultation' });
     }
 
-    const session = await telemedicineService.getSessionByAppointmentId(appointmentId, token);
+    // Same room naming as telemedicine-service createSession (Jitsi)
+    const fallbackMeetingLink = `https://meet.jit.si/smartmedicare-${appointmentId}`;
+
+    let telemedicineSession = null;
+    let meetingLink = appointment.data.meetingLink || null;
+
+    try {
+      const session = await telemedicineService.getSessionByAppointmentId(appointmentId, token);
+      if (session.success && session.data) {
+        telemedicineSession = session.data;
+        meetingLink = session.data.meetingLink || meetingLink;
+      }
+    } catch (err) {
+      // No session yet, telemedicine down, or wrong Docker URL — still allow joining via fallback link
+      console.warn('Join telemedicine: session unavailable, using fallback if needed:', err.message);
+    }
+
+    if (!meetingLink) {
+      meetingLink = fallbackMeetingLink;
+    }
 
     return res.json({
       success: true,
       data: {
         appointment: appointment.data,
-        telemedicineSession: session.data,
-        meetingLink: session.data?.meetingLink || appointment.data.meetingLink || null
+        telemedicineSession,
+        meetingLink
       }
     });
   } catch (error) {

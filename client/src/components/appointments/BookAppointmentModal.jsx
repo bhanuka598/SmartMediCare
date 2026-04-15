@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Calendar, Clock, Video, MapPin, Loader2, CheckCircle } from 'lucide-react';
+import { X, Search, Calendar, Clock, Video, MapPin, Loader2, CheckCircle, CreditCard } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
 import { Card } from '../shared/Card';
@@ -24,7 +24,40 @@ const TIME_SLOTS = [
   '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
 ];
 
+const normalizeSlotTime = (t) => {
+  if (t == null || t === '') return '';
+  const m = String(t).match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return String(t).trim();
+  return `${String(parseInt(m[1], 10)).padStart(2, '0')}:${m[2]}`;
+};
+
+const slotTimeToMinutes = (t) => {
+  const n = normalizeSlotTime(t);
+  const [h, mm] = n.split(':').map((x) => parseInt(x, 10) || 0);
+  return h * 60 + mm;
+};
+
 const getToken = () => localStorage.getItem('token');
+
+const WEEK_DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const WEEK_DAY_SHORT = {
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun'
+};
+
+/** Human-readable line from doctor default weekly schedule (public API). */
+const formatWeeklyAvailabilityHint = (defaultSchedule) => {
+  if (!defaultSchedule || typeof defaultSchedule !== 'object') return '';
+  const active = WEEK_DAY_KEYS.filter((d) => defaultSchedule[d]?.isAvailable);
+  if (active.length === 0) return 'This doctor has no weekly working hours set yet.';
+  const labels = active.map((d) => WEEK_DAY_SHORT[d] || d);
+  return `Usually available on: ${labels.join(', ')}.`;
+};
 
 const normalizeDoctor = (doctor) => ({
   ...doctor,
@@ -45,7 +78,13 @@ const normalizeDoctor = (doctor) => ({
     doctor.profile?.avatar ||
     doctor.profileImage ||
     'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
-  experience: doctor.experience || doctor.professional?.yearsOfExperience || doctor.yearsOfExperience || 0
+  experience: doctor.experience || doctor.professional?.yearsOfExperience || doctor.yearsOfExperience || 0,
+  consultationFee: (() => {
+    const raw = doctor.consultationFee ?? doctor.practice?.consultationFee ?? 0;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  })(),
+  currency: doctor.practice?.currency || doctor.currency || 'USD'
 });
 
 export function BookAppointmentModal({ 
@@ -71,6 +110,7 @@ export function BookAppointmentModal({
   const [duration, setDuration] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [weeklyAvailabilityHint, setWeeklyAvailabilityHint] = useState('');
   const [patientContact, setPatientContact] = useState({
     name: patientName || '',
     email: patientEmail || '',
@@ -139,6 +179,30 @@ export function BookAppointmentModal({
     fetchPatientProfile();
   }, [isOpen, patientEmail, patientName, patientPhone]);
 
+  useEffect(() => {
+    if (!isOpen || step !== 2 || !selectedDoctor) {
+      setWeeklyAvailabilityHint('');
+      return;
+    }
+    const doctorId = selectedDoctor.userId || selectedDoctor.id || selectedDoctor._id;
+    if (!doctorId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/doctors/public/${doctorId}/availability`);
+        const data = await res.json();
+        if (cancelled || !data.success) return;
+        setWeeklyAvailabilityHint(formatWeeklyAvailabilityHint(data.defaultSchedule));
+      } catch {
+        if (!cancelled) setWeeklyAvailabilityHint('');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, step, selectedDoctor]);
+
   // Search doctors by specialty
   const searchDoctors = async () => {
     if (!selectedSpecialty) return;
@@ -182,51 +246,83 @@ export function BookAppointmentModal({
     }
   };
 
-  // Get available slots for selected doctor and date
-  const [availableSlots, setAvailableSlots] = useState([]);
+  /** Each slot: time (HH:mm), disabled (not bookable), booked (taken — show blocked style). */
+  const [slotRows, setSlotRows] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   const fetchAvailableSlots = async () => {
     if (!selectedDoctor || !selectedDate) return;
-    
+
     const doctorId = selectedDoctor.userId || selectedDoctor.id || selectedDoctor._id;
     if (!doctorId) {
-      setAvailableSlots(TIME_SLOTS);
+      setSlotRows(TIME_SLOTS.map((time) => ({ time: normalizeSlotTime(time), disabled: false, booked: false })));
       return;
     }
-    
+
     setLoadingSlots(true);
     try {
       const response = await fetch(
-        `${API_URL}/api/appointments/doctors/${doctorId}/slots?date=${selectedDate}`,
+        `${API_URL}/api/appointments/doctors/${doctorId}/slots?date=${encodeURIComponent(selectedDate)}`,
         {
           cache: 'no-store',
           headers: {
-            'Authorization': `Bearer ${getToken()}`,
+            Authorization: `Bearer ${getToken()}`,
             'Content-Type': 'application/json'
           }
         }
       );
-      
+
       const data = await response.json();
-      
-      // Handle different response formats
-      let slots = [];
-      if (data.success && data.data) {
-        // Normalize backend slot objects into simple "HH:mm" strings for the UI.
-        slots = (data.data.availableSlots || data.data.slots || []).map((slot) =>
-          typeof slot === 'string' ? slot : slot.start || slot.startTime
-        ).filter(Boolean);
+
+      if (!data.success || !data.data) {
+        setSlotRows([]);
+        return;
       }
-      
-      // If no slots returned or error, use default time slots
-      if (slots.length === 0) {
-        slots = TIME_SLOTS;
-      }
-      
-      setAvailableSlots(slots);
+
+      const d = data.data;
+      const bookedKeys = new Set((d.bookedSlots || []).map((b) => normalizeSlotTime(b.start)));
+
+      const availableRaw = d.availableSlots || d.slots || [];
+      const availableKeys = new Set(
+        availableRaw
+          .map((slot) =>
+            normalizeSlotTime(typeof slot === 'string' ? slot : slot.start || slot.startTime)
+          )
+          .filter(Boolean)
+      );
+
+      const allFromApi = (d.allSlots || [])
+        .map((slot) =>
+          normalizeSlotTime(typeof slot === 'string' ? slot : slot.start || slot.startTime)
+        )
+        .filter(Boolean);
+
+      const hasResolvedSchedule =
+        d.hasScheduleForDate === true || (Array.isArray(d.allSlots) && d.allSlots.length > 0);
+
+      const gridTimes = hasResolvedSchedule
+        ? allFromApi.length > 0
+          ? [...new Set(allFromApi)].sort((a, b) => slotTimeToMinutes(a) - slotTimeToMinutes(b))
+          : []
+        : [...TIME_SLOTS];
+
+      const rows = gridTimes.map((time) => {
+        const norm = normalizeSlotTime(time);
+        const booked = bookedKeys.has(norm);
+        let disabled;
+        if (hasResolvedSchedule) {
+          disabled = !availableKeys.has(norm);
+        } else if (bookedKeys.size === 0) {
+          disabled = false;
+        } else {
+          disabled = booked;
+        }
+        return { time: norm, disabled, booked };
+      });
+
+      setSlotRows(rows);
     } catch (err) {
-      setAvailableSlots(TIME_SLOTS);
+      setSlotRows([]);
     } finally {
       setLoadingSlots(false);
     }
@@ -236,7 +332,34 @@ export function BookAppointmentModal({
     fetchAvailableSlots();
   }, [selectedDoctor, selectedDate]);
 
-  // Submit appointment
+  useEffect(() => {
+    setSelectedTime('');
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!selectedTime) return;
+    const row = slotRows.find((r) => r.time === selectedTime);
+    if (row?.disabled) setSelectedTime('');
+  }, [slotRows, selectedTime]);
+
+  const formatMoney = (amount, currencyCode) => {
+    const code = currencyCode && /^[A-Z]{3}$/i.test(String(currencyCode).trim())
+      ? String(currencyCode).trim().toUpperCase()
+      : 'USD';
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(amount);
+    } catch {
+      return `${currencyCode || ''} ${Number(amount).toFixed(2)}`.trim();
+    }
+  };
+
+  const consultationFee = selectedDoctor?.consultationFee ?? 0;
+  const currency = selectedDoctor?.currency || 'USD';
+
+  /**
+   * Free visits: mark PAID immediately.
+   * Paid visits: save as PENDING, then redirect to Stripe Checkout (hosted card page).
+   */
   const submitAppointment = async () => {
     const resolvedPatientId = patientId;
     const resolvedDoctorId = selectedDoctor?.userId || selectedDoctor?.id || selectedDoctor?._id;
@@ -253,7 +376,7 @@ export function BookAppointmentModal({
 
     setSubmitting(true);
     setError(null);
-    
+
     try {
       const appointmentData = {
         patientId: resolvedPatientId,
@@ -268,30 +391,92 @@ export function BookAppointmentModal({
         endTime: calculateEndTime(selectedTime, duration),
         duration,
         reason,
-        symptoms: symptoms.split(',').map(s => s.trim()).filter(s => s),
-        type: appointmentType
+        symptoms: symptoms.split(',').map((s) => s.trim()).filter((s) => s),
+        type: appointmentType,
+        fee: consultationFee,
+        paymentStatus: consultationFee > 0 ? 'PENDING' : 'PAID'
       };
 
-      const response = await fetch(
-        `${API_URL}/api/appointments`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${getToken()}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(appointmentData)
-        }
-      );
-      
+      const response = await fetch(`${API_URL}/api/appointments`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(appointmentData)
+      });
+
       const data = await response.json();
-      
-      if (response.ok && data.success) {
-        setStep(4); // Success step
-        onSuccess?.(data.data);
-      } else {
+
+      if (!response.ok || !data.success) {
         setError(data.message || data.error || 'Failed to book appointment');
+        return;
       }
+
+      const created = data.data;
+      const appointmentId = created?._id || created?.id;
+
+      if (consultationFee <= 0) {
+        try {
+          await fetch(`${API_URL}/api/payments/transactions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${getToken()}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              appointmentId,
+              amount: 0,
+              doctorId: resolvedDoctorId,
+              doctorName: selectedDoctor.name,
+              patientName: patientContact.name || patientName,
+              paymentMethod: 'none',
+              currency,
+              status: 'completed'
+            })
+          });
+        } catch (payErr) {
+          console.warn('Payment record sync failed:', payErr);
+        }
+        setStep(5);
+        onSuccess?.(created);
+        return;
+      }
+
+      const origin = window.location.origin;
+      const checkoutRes = await fetch(`${API_URL}/api/payments/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          appointmentId,
+          currency,
+          successUrl: `${origin}/patient/appointments?checkout=success`,
+          cancelUrl: `${origin}/patient/doctors?checkout=cancelled`
+        })
+      });
+
+      const checkoutData = await checkoutRes.json();
+
+      if (!checkoutRes.ok) {
+        setError(
+          checkoutData.message ||
+            'Could not start Stripe Checkout. Set STRIPE_SECRET_KEY on the payment service (use your Stripe test secret key sk_test_…).'
+        );
+        return;
+      }
+
+      if (checkoutData.url) {
+        if (checkoutData.sessionId) {
+          sessionStorage.setItem('stripe_last_checkout_session', checkoutData.sessionId);
+        }
+        window.location.href = checkoutData.url;
+        return;
+      }
+
+      setError('No checkout URL returned from server.');
     } catch (err) {
       setError('Network error. Please try again.');
     } finally {
@@ -320,7 +505,7 @@ export function BookAppointmentModal({
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-white rounded-t-2xl">
           <h2 className="text-xl font-bold text-slate-900">
-            {step === 4 ? 'Appointment Booked!' : 'Book an Appointment'}
+            {step === 5 ? 'Appointment Booked!' : 'Book an Appointment'}
           </h2>
           <button
             onClick={onClose}
@@ -331,16 +516,16 @@ export function BookAppointmentModal({
         </div>
 
         {/* Progress Steps */}
-        {step < 4 && (
+        {step < 5 && (
           <div className="flex items-center justify-center gap-2 px-6 py-4 bg-slate-50">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <div key={s} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step >= s ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
                 }`}>
                   {s}
                 </div>
-                {s < 3 && (
+                {s < 4 && (
                   <div className={`w-12 h-0.5 mx-2 ${
                     step > s ? 'bg-blue-600' : 'bg-slate-200'
                   }`} />
@@ -477,6 +662,11 @@ export function BookAppointmentModal({
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="w-full"
                 />
+                {weeklyAvailabilityHint && (
+                  <p className="text-xs text-slate-600 mt-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                    {weeklyAvailabilityHint} Pick a matching day, then choose a time below.
+                  </p>
+                )}
               </div>
 
               {selectedDate && (
@@ -485,23 +675,44 @@ export function BookAppointmentModal({
                     <Clock className="inline h-4 w-4 mr-1" />
                     Select Time Slot
                   </label>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Unavailable slots are blocked — already booked or outside the doctor&apos;s schedule.
+                  </p>
                   {loadingSlots ? (
                     <div className="flex justify-center py-4">
                       <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                     </div>
+                  ) : slotRows.length === 0 ? (
+                    <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      No bookable times on this date. Choose another day that fits the doctor&apos;s usual
+                      schedule.
+                    </p>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {availableSlots.map((slot) => (
+                      {slotRows.map(({ time, disabled, booked }) => (
                         <button
-                          key={slot}
-                          onClick={() => setSelectedTime(slot)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            selectedTime === slot
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          key={time}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => !disabled && setSelectedTime(time)}
+                          title={
+                            disabled
+                              ? booked
+                                ? 'This time is already booked'
+                                : 'Not available for this date'
+                              : 'Select this time'
+                          }
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                            disabled
+                              ? booked
+                                ? 'bg-slate-200 text-slate-500 border-slate-300 cursor-not-allowed line-through opacity-90'
+                                : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-75'
+                              : selectedTime === time
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-slate-100 text-slate-700 border-transparent hover:bg-slate-200'
                           }`}
                         >
-                          {slot}
+                          {time}
                         </button>
                       ))}
                     </div>
@@ -645,22 +856,77 @@ export function BookAppointmentModal({
                   Back
                 </Button>
                 <Button
-                  onClick={submitAppointment}
+                  onClick={() => setStep(4)}
                   disabled={submitting || !reason.trim()}
                   className="flex-1"
                 >
+                  Continue to payment
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Payment */}
+          {step === 4 && (
+            <div className="space-y-6">
+              <Card className="bg-slate-50 border-slate-200">
+                <div className="p-4 space-y-2">
+                  <p className="text-sm font-medium text-slate-900">Payment summary</p>
+                  <p className="text-sm text-slate-600">
+                    <span className="text-slate-700">Doctor:</span>{' '}
+                    <span className="text-slate-900">{selectedDoctor?.name}</span>
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    <span className="text-slate-700">Visit:</span>{' '}
+                    <span className="text-slate-900">
+                      {selectedDate} at {selectedTime}
+                    </span>
+                  </p>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 mt-2">
+                    <span className="text-sm font-medium text-slate-700">Consultation fee</span>
+                    <span className="text-lg font-semibold text-slate-900">
+                      {formatMoney(consultationFee, currency)}
+                    </span>
+                  </div>
+                  {consultationFee <= 0 && (
+                    <p className="text-xs text-emerald-800 bg-emerald-50 rounded-lg px-3 py-2">
+                      No payment required for this booking.
+                    </p>
+                  )}
+                </div>
+              </Card>
+
+              {consultationFee <= 0 && (
+                <p className="text-xs text-slate-500">
+                  No card required for free consultations.
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(3)}
+                  className="flex-1"
+                  disabled={submitting}
+                >
+                  Back
+                </Button>
+                <Button onClick={submitAppointment} disabled={submitting} className="flex-1 gap-2">
                   {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    'Book Appointment'
+                    <>
+                      <CreditCard className="h-4 w-4" />
+                      {consultationFee > 0 ? 'Continue to Stripe' : 'Confirm appointment'}
+                    </>
                   )}
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Step 4: Success */}
-          {step === 4 && (
+          {/* Step 5: Success */}
+          {step === 5 && (
             <div className="text-center py-8">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="h-10 w-10 text-green-600" />

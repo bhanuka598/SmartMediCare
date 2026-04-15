@@ -10,12 +10,12 @@ const PORT = process.env.PORT || 5000;
 // Service URLs configuration
 const SERVICES = {
   auth: process.env.AUTH_SERVICE_URL || 'http://localhost:5002',
-  appointment: process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:5003',
-  doctor: process.env.DOCTOR_SERVICE_URL || 'http://localhost:5004',
-  notification: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5005',
-  patient: process.env.PATIENT_SERVICE_URL || 'http://localhost:5006',
-  payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:5007',
-  telemedicine: process.env.TELEMEDICINE_SERVICE_URL || 'http://localhost:5008'
+  appointment: process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:5001',
+  doctor: process.env.DOCTOR_SERVICE_URL || 'http://localhost:5003',
+  notification: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5004',
+  patient: process.env.PATIENT_SERVICE_URL || 'http://localhost:5005',
+  payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:5006',
+  telemedicine: process.env.TELEMEDICINE_SERVICE_URL || 'http://localhost:5007'
 };
 
 // Middleware

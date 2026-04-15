@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const appointmentController = require("../controllers/appointmentController");
-const { protect, optionalAuth, adminOnly, patientOnly, doctorOnly } = require("../middleware/authMiddleware");
+const { protect, optionalAuth, adminOnly, patientOnly, doctorOnly, serviceAuth } = require("../middleware/authMiddleware");
 
 // Public routes - search doctors
 router.get("/doctors/search", optionalAuth, appointmentController.searchDoctorsBySpecialty);
@@ -15,6 +15,13 @@ router.get("/doctors/:doctorId/slots", protect, appointmentController.getAvailab
 // Admin routes
 router.get("/", protect, adminOnly, appointmentController.getAllAppointments);
 router.get("/statistics", protect, adminOnly, appointmentController.getAppointmentStatistics);
+
+// Internal (service-to-service)
+router.patch(
+  "/internal/:id/mark-paid",
+  serviceAuth,
+  appointmentController.markAppointmentPaidInternal
+);
 
 // Patient routes
 router.post("/", protect, patientOnly, appointmentController.createAppointment);

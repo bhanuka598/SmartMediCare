@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, Loader2, AlertCircle, Plus } from 'lucide-react';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
@@ -68,14 +69,18 @@ export function AppointmentsPage() {
   const [error, setError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(null);
   const [joinLoading, setJoinLoading] = useState(null);
+  const [payLoading, setPayLoading] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState({});
 
   const { user, isAuthenticated } = useAuth();
   const patientId = user?.id || user?._id;
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [checkoutBanner, setCheckoutBanner] = useState(null);
 
-  // Fetch appointments
-  const fetchAppointments = async () => {
+  // Fetch appointments (silent = no full-page loading state, e.g. after Stripe redirect)
+  const fetchAppointments = async (options = {}) => {
+    const silent = options.silent === true;
     if (!patientId) {
       setError('Please log in to view appointments');
       setLoading(false);
@@ -83,8 +88,10 @@ export function AppointmentsPage() {
     }
 
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
 
       const response = await fetch(
         `${API_URL}/api/appointments/my-appointments?sortBy=dateAsc`,
@@ -109,15 +116,84 @@ export function AppointmentsPage() {
       }
     } catch (err) {
       console.error('Error fetching appointments:', err);
-      setError(err.message);
+      if (!silent) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchAppointments();
   }, [patientId, activeTab]);
+
+  // Complete Stripe Checkout: session_id from return URL or from sessionStorage (saved before redirect).
+  useEffect(() => {
+    const sessionId =
+      searchParams.get('session_id') ||
+      sessionStorage.getItem('stripe_last_checkout_session');
+    if (!sessionId || !patientId) return;
+
+    const doneKey = `stripe_checkout_ok_${sessionId}`;
+    if (sessionStorage.getItem(doneKey) === '1') {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('checkout');
+        next.delete('session_id');
+        return next;
+      }, { replace: true });
+      return;
+    }
+
+    const processingKey = `stripe_checkout_processing_${sessionId}`;
+    if (sessionStorage.getItem(processingKey) === '1') return;
+    sessionStorage.setItem(processingKey, '1');
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/payments/complete-checkout`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ sessionId })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Could not confirm payment');
+        }
+        if (cancelled) return;
+        sessionStorage.setItem(doneKey, '1');
+        sessionStorage.removeItem('stripe_last_checkout_session');
+        setCheckoutBanner({
+          type: 'success',
+          text: 'Payment successful. Your appointment is confirmed.'
+        });
+        await fetchAppointments({ silent: true });
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('checkout');
+          next.delete('session_id');
+          return next;
+        }, { replace: true });
+      } catch (e) {
+        if (!cancelled) {
+          setCheckoutBanner({
+            type: 'error',
+            text: e.message || 'Payment confirmation failed. You can refresh this page to try again.'
+          });
+        }
+      } finally {
+        sessionStorage.removeItem(processingKey);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      sessionStorage.removeItem(processingKey);
+    };
+  }, [searchParams, setSearchParams, patientId]);
 
   // Poll for appointment updates instead of using WebSocket.
   useEffect(() => {
@@ -189,11 +265,11 @@ export function AppointmentsPage() {
         }
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to get session details');
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to get session details');
+      }
       
       if (data.success && data.data) {
         const meetingLink =
@@ -214,6 +290,43 @@ export function AppointmentsPage() {
       alert(err.message);
     } finally {
       setJoinLoading(null);
+    }
+  };
+
+  const handlePay = async (appointmentId) => {
+    try {
+      setPayLoading(appointmentId);
+      const origin = window.location.origin;
+      const checkoutRes = await fetch(`${API_URL}/api/payments/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          appointmentId,
+          currency: 'usd',
+          successUrl: `${origin}/patient/appointments?checkout=success`,
+          cancelUrl: `${origin}/patient/appointments?checkout=cancelled`
+        })
+      });
+      const checkoutData = await checkoutRes.json();
+      if (!checkoutRes.ok) {
+        throw new Error(checkoutData.message || 'Could not start payment');
+      }
+      if (checkoutData.url) {
+        if (checkoutData.sessionId) {
+          sessionStorage.setItem('stripe_last_checkout_session', checkoutData.sessionId);
+        }
+        window.location.href = checkoutData.url;
+        return;
+      }
+      throw new Error('No payment page URL returned');
+    } catch (err) {
+      console.error('Payment checkout error:', err);
+      alert(err.message || 'Could not start payment');
+    } finally {
+      setPayLoading(null);
     }
   };
 
@@ -283,6 +396,12 @@ export function AppointmentsPage() {
     rescheduleCount: app.rescheduleCount,
     rating: app.rating,
     canRate: app.status === 'COMPLETED' && !app.rating?.score,
+    fee: app.fee ?? 0,
+    paymentStatus: app.paymentStatus || 'PENDING',
+    feeFormatted:
+      typeof app.fee === 'number' && app.fee > 0
+        ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(app.fee)
+        : null,
     originalData: app // Keep original data for reference
   });
 
@@ -377,6 +496,28 @@ export function AppointmentsPage() {
         </Button>
       </div>
 
+      {checkoutBanner && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            checkoutBanner.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : 'border-red-200 bg-red-50 text-red-900'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span>{checkoutBanner.text}</span>
+            <button
+              type="button"
+              onClick={() => setCheckoutBanner(null)}
+              className="text-slate-500 hover:text-slate-800 shrink-0"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="border-b border-slate-200">
         <nav className="-mb-px flex space-x-8">
           <button
@@ -417,11 +558,13 @@ export function AppointmentsPage() {
               trackingStatus={trackingStatus[appointment.id]}
               onJoin={(id) => handleJoin(id)}
               onCancel={(id) => handleCancel(id)}
+              onPay={(id) => handlePay(id)}
               onViewNotes={(id) => handleViewNotes(id)}
               onRate={(id, rating, feedback) => handleRate(id, rating, feedback)}
               onTrack={() => refreshAppointmentStatus(appointment.id)}
               isJoinLoading={joinLoading === appointment.id}
               isCancelLoading={cancelLoading === appointment.id}
+              isPaymentLoading={payLoading === appointment.id}
             />
           ))
         ) : (

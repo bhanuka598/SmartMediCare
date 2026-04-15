@@ -107,6 +107,8 @@ services:
 
       - JWT_SECRET=secret
       - INTERNAL_SERVICE_SECRET=secret
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:5007
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:5001
 
     networks:
 
@@ -183,6 +185,16 @@ services:
       - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/payment-service_db
 
       - JWT_SECRET=secret
+
+      - INTERNAL_SERVICE_SECRET=secret
+
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:5001
+
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
+
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
 
     networks:
 

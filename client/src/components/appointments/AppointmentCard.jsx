@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, Video, FileText, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Video, FileText, Loader2, CreditCard } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { Card, CardContent } from '../shared/Card';
 import { Badge } from '../shared/Badge';
@@ -8,10 +8,19 @@ export function AppointmentCard({
   appointment,
   onJoin,
   onCancel,
+  onPay,
   onViewNotes,
   isJoinLoading = false,
-  isCancelLoading = false
+  isCancelLoading = false,
+  isPaymentLoading = false
 }) {
+  const paymentPending =
+    String(appointment.paymentStatus || '').toUpperCase() === 'PENDING';
+  const needsPayment =
+    appointment.status === 'upcoming' &&
+    paymentPending &&
+    Number(appointment.fee) > 0;
+
   const statusConfig = {
     upcoming: {
       variant: 'info',
@@ -83,6 +92,32 @@ export function AppointmentCard({
                     </>
                   )}
                 </div>
+
+                {(appointment.paymentStatus || appointment.feeFormatted) && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                    <Badge
+                      variant={
+                        String(appointment.paymentStatus || '').toUpperCase() === 'PAID'
+                          ? 'success'
+                          : paymentPending
+                            ? 'warning'
+                            : 'default'
+                      }
+                    >
+                      {String(appointment.paymentStatus || '').toUpperCase() === 'PAID'
+                        ? 'Paid'
+                        : paymentPending
+                          ? 'Payment pending'
+                          : appointment.paymentStatus || 'Payment'}
+                    </Badge>
+                    {appointment.feeFormatted && (
+                      <span className="inline-flex items-center gap-1 text-slate-600">
+                        <CreditCard className="h-3 w-3" />
+                        {appointment.feeFormatted}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -105,20 +140,39 @@ export function AppointmentCard({
                     )}
                   </Button>
 
-                  <Button
-                    size="sm"
-                    onClick={() => onJoin?.(appointment.id)}
-                    disabled={isJoinLoading}
-                    className="flex-1 sm:flex-none gap-2"
-                  >
-                    {isJoinLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Video className="h-4 w-4" /> Join Call
-                      </>
-                    )}
-                  </Button>
+                  {needsPayment && onPay && (
+                    <Button
+                      size="sm"
+                      onClick={() => onPay(appointment.id)}
+                      disabled={isPaymentLoading}
+                      className="flex-1 sm:flex-none gap-2"
+                    >
+                      {isPaymentLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <CreditCard className="h-4 w-4" /> Pay now
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {!needsPayment && appointment.type === 'video' && (
+                    <Button
+                      size="sm"
+                      onClick={() => onJoin?.(appointment.id)}
+                      disabled={isJoinLoading}
+                      className="flex-1 sm:flex-none gap-2"
+                    >
+                      {isJoinLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Video className="h-4 w-4" /> Join Call
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </>
               )}
 
