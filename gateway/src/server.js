@@ -102,42 +102,63 @@ app.use('/api/auth', authProxy);
 app.use('/api/appointments', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.appointment,
-  pathRewrite: { '^/api/appointments': '/api/appointments' }
+  pathRewrite: (path) => `/api/appointments${path}`
 }));
 
 // Doctor Service
 app.use('/api/doctors', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.doctor,
-  pathRewrite: { '^/api/doctors': '/api/doctors' }
+  pathRewrite: (path) => `/api/doctors${path}`
 }));
 
-// Patient Service
+// Patient Service (singular) - must come before plural
+app.use('/api/patient', createProxyMiddleware({
+  ...proxyOptions,
+  target: SERVICES.patient,
+  pathRewrite: { '^/api/patient': '' },
+  onError: (err, req, res) => {
+    console.error('Patient service proxy error:', err.message);
+    res.status(500).json({ message: 'Patient service unavailable', error: err.message });
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[Gateway -> Patient Service] ${req.method} ${req.path} -> ${proxyReq.path}`);
+  }
+}));
+
+// Patient Service (plural)
 app.use('/api/patients', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.patient,
-  pathRewrite: { '^/api/patients': '/api/patients' }
+  pathRewrite: { '^/api/patients': '' },
+  onError: (err, req, res) => {
+    console.error('Patient service proxy error:', err.message);
+    res.status(500).json({ message: 'Patient service unavailable', error: err.message });
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[Gateway -> Patient Service] ${req.method} ${req.path} -> ${proxyReq.path}`);
+  }
 }));
 
 // Payment Service
 app.use('/api/payments', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.payment,
-  pathRewrite: { '^/api/payments': '/api/payments' }
+  pathRewrite: (path) => `/api/payments${path}`
 }));
 
 // Telemedicine Service
 app.use('/api/telemedicine', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.telemedicine,
-  pathRewrite: { '^/api/telemedicine': '/api/telemedicine' }
+  pathRewrite: (path) => `/api/telemedicine${path}`
 }));
 
 // Notification Service
 app.use('/api/notifications', createProxyMiddleware({
   ...proxyOptions,
   target: SERVICES.notification,
-  pathRewrite: { '^/api/notifications': '/api/notifications' }
+  pathRewrite: (path) => `/api/notifications${path}`
 }));
 
 // 404 handler

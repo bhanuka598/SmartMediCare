@@ -10,7 +10,8 @@ import {
   Clock,
   ClipboardList,
   CreditCard,
-  ShieldCheck
+  ShieldCheck,
+  User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -22,7 +23,8 @@ export function Sidebar() {
     { to: '/patient/doctors', icon: Users, label: 'Find Doctors' },
     { to: '/patient/appointments', icon: Calendar, label: 'Appointments' },
     { to: '/patient/records', icon: FileText, label: 'Medical Records' },
-    { to: '/patient/symptom-checker', icon: Activity, label: 'Symptom Checker' }
+    { to: '/patient/symptom-checker', icon: Activity, label: 'Symptom Checker' },
+    { to: '/patient/profile', icon: User, label: 'My Profile' }
   ];
 
   const doctorLinks = [
@@ -30,7 +32,8 @@ export function Sidebar() {
     { to: '/doctor/availability', icon: Clock, label: 'Availability' },
     { to: '/doctor/consultations', icon: Video, label: 'Consultations' },
     { to: '/doctor/prescriptions', icon: ClipboardList, label: 'Prescriptions' },
-    { to: '/doctor/patients', icon: Users, label: 'My Patients' }
+    { to: '/doctor/patients', icon: Users, label: 'My Patients' },
+    { to: '/doctor/profile', icon: User, label: 'My Profile' }
   ];
 
   const adminLinks = [
