@@ -119,7 +119,8 @@ const getDoctorAvailability = async (doctorId) => {
     const response = await httpRequestWithRetry(
       {
         method: 'GET',
-        url
+        url,
+        params: { includeBooked: true }
       },
       DOCTOR_SERVICE_RETRY_CONFIG,
       "doctor-service"
