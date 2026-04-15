@@ -321,7 +321,7 @@ export function BookAppointmentModal({
       });
 
       setSlotRows(rows);
-    } catch (err) {
+    } catch {
       setSlotRows([]);
     } finally {
       setLoadingSlots(false);
@@ -330,7 +330,7 @@ export function BookAppointmentModal({
 
   useEffect(() => {
     fetchAvailableSlots();
-  }, [selectedDoctor, selectedDate]);
+  }, [fetchAvailableSlots]);
 
   useEffect(() => {
     setSelectedTime('');
@@ -477,7 +477,7 @@ export function BookAppointmentModal({
       }
 
       setError('No checkout URL returned from server.');
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setSubmitting(false);
