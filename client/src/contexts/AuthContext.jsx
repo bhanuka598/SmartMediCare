@@ -1,24 +1,62 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
+
+const API_URL = 'http://localhost:5000';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
+  const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = (email, selectedRole) => {
-    // Mock login implementation
-    setUser({
-      id: Math.random().toString(36).substr(2, 9),
-      name: email.split('@')[0].replace('.', ' '),
-      email,
-      avatar: `https://ui-avatars.com/api/?name=${email}&background=0D8ABC&color=fff`
-    });
+  // Verify token on app load
+  useEffect(() => {
+    const verifyToken = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
 
-    setRole(selectedRole);
+      try {
+        const response = await fetch(`${API_URL}/api/auth/verify-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.valid) {
+          setUser(data.user);
+          setRole(data.user.role);
+          setToken(token);
+        } else {
+          localStorage.removeItem('token');
+          setToken(null);
+        }
+      } catch (error) {
+        console.error('Token verification failed:', error);
+        localStorage.removeItem('token');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    verifyToken();
+  }, []);
+
+  const login = (authToken, userData) => {
+    localStorage.setItem('token', authToken);
+    setToken(authToken);
+    setUser(userData);
+    setRole(userData.role);
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
     setUser(null);
     setRole(null);
   };
@@ -28,7 +66,9 @@ export function AuthProvider({ children }) {
       value={{
         user,
         role,
+        token,
         isAuthenticated: !!user,
+        isLoading,
         login,
         logout
       }}

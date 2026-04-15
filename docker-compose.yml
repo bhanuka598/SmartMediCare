@@ -1,0 +1,225 @@
+version: "3.9"
+
+
+
+services:
+
+  client:
+
+    build: ./client
+
+    container_name: client
+
+    ports:
+
+      - "3000:3000"
+
+    depends_on:
+
+      - gateway
+
+    environment:
+
+      - VITE_API_BASE_URL=http://localhost:5000
+
+    networks:
+
+      - smartcare-net
+
+
+
+  gateway:
+
+    build: ./gateway
+
+    container_name: gateway
+
+    ports:
+
+      - "5000:5000"
+
+    depends_on:
+
+      - auth-service
+
+      - patient-service
+
+      - doctor-service
+
+      - appointment-service
+
+      - payment-service
+
+      - notification-service
+
+      - telemedicine-service
+
+    environment:
+
+      - PORT=5000
+
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:5001
+      - AUTH_SERVICE_URL=http://auth-service:5002
+      - DOCTOR_SERVICE_URL=http://doctor-service:5003
+
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5004
+      - PATIENT_SERVICE_URL=http://patient-service:5005
+      - PAYMENT_SERVICE_URL=http://payment-service:5006
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:5007
+
+    networks:
+
+      - smartcare-net
+
+
+
+  auth-service:
+
+    build: ./services/auth-service
+
+    container_name: auth-service
+
+    environment:
+
+      - PORT=5002
+
+      - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/auth-service_db
+
+      - JWT_SECRET=secret
+
+    networks:
+
+      - smartcare-net
+
+
+
+  patient-service:
+
+    build: ./services/patient-service
+
+    container_name: patient-service
+
+    environment:
+
+      - PORT=5005
+
+      - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/patient-service_db
+
+      - JWT_SECRET=secret
+      - INTERNAL_SERVICE_SECRET=secret
+
+    networks:
+
+      - smartcare-net
+
+
+
+  doctor-service:
+
+    build: ./services/doctor-service
+
+    container_name: doctor-service
+
+    environment:
+
+      - PORT=5003
+
+      - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/doctor-service_db
+
+      - JWT_SECRET=secret
+
+      - AUTH_SERVICE_URL=http://auth-service:5002
+
+      - INTERNAL_SERVICE_SECRET=secret
+
+    networks:
+
+      - smartcare-net
+
+
+
+  appointment-service:
+
+    build: ./services/appointment-service
+
+    container_name: appointment-service
+
+    environment:
+
+      - PORT=5001
+
+      - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/appointment-service_db
+
+      - JWT_SECRET=secret
+
+      - AUTH_SERVICE_URL=http://auth-service:5002
+
+      - PATIENT_SERVICE_URL=http://patient-service:5005
+
+      - DOCTOR_SERVICE_URL=http://doctor-service:5003
+
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5004
+
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:5007
+
+      - INTERNAL_SERVICE_SECRET=secret
+
+    networks:
+
+      - smartcare-net
+
+
+
+  payment-service:
+
+    build: ./services/payment-service
+
+    container_name: payment-service
+
+    environment:
+
+      - PORT=5006
+
+      - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/payment-service_db
+
+      - JWT_SECRET=secret
+
+    networks:
+
+      - smartcare-net
+
+
+
+  notification-service:
+
+    build: ./services/notification-service
+
+    container_name: notification-service
+
+    environment:
+
+      - PORT=5004
+
+      - JWT_SECRET=secret
+
+      - INTERNAL_SERVICE_SECRET=secret
+      - EMAIL_FROM=no-reply@smartmedicare.local
+
+    networks:
+      - smartcare-net
+
+
+
+  telemedicine-service:
+    build: ./services/telemedicine-service
+    container_name: telemedicine-service
+    environment:
+      - PORT=5007
+      - MONGO_URI=mongodb+srv://admin:R3PY75dcjq5Z8FZk@cluster0.i1f9ioi.mongodb.net/telemedicine-service_db
+      - JWT_SECRET=secret
+    networks:
+      - smartcare-net
+
+networks:
+  smartcare-net:
+    driver: bridge

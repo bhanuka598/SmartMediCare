@@ -1,16 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
   Calendar,
   Video,
   ArrowRight,
-  Star
+  Star,
+  Mail,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '../components/shared/Button';
 import { Navbar } from '../components/layout/Navbar';
 
 export function LandingPage() {
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    setEmailError('');
+  };
+
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    
+    if (!email) {
+      setEmailError('Please enter your email address');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setEmailError('Please enter a valid email address with @');
+      return;
+    }
+
+    // Simulate subscription
+    setIsSubscribed(true);
+    setEmail('');
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -128,6 +157,51 @@ export function LandingPage() {
                 based on your symptoms.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Newsletter Section */}
+      <section className="py-16 bg-blue-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 text-blue-600 mb-4">
+              <Mail size={24} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              Stay Updated with Health News
+            </h2>
+            <p className="text-slate-600 mb-6">
+              Subscribe to our newsletter for the latest health tips, updates, and exclusive offers.
+            </p>
+
+            {isSubscribed ? (
+              <div className="flex items-center justify-center text-green-600 font-medium">
+                <Star className="h-5 w-5 mr-2 fill-green-600" />
+                Thank you for subscribing!
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={email}
+                    onChange={handleEmailChange}
+                    placeholder="Enter your email address"
+                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                  />
+                  {emailError && (
+                    <div className="flex items-center mt-2 text-red-600 text-sm">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {emailError}
+                    </div>
+                  )}
+                </div>
+                <Button type="submit" className="whitespace-nowrap">
+                  Subscribe
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </section>

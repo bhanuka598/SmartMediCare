@@ -6,6 +6,7 @@ import { FeaturesPage } from './pages/FeaturesPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
 // Patient Pages
@@ -14,13 +15,21 @@ import { DoctorsPage } from './pages/patient/DoctorsPage';
 import { AppointmentsPage } from './pages/patient/AppointmentsPage';
 import { MedicalRecordsPage } from './pages/patient/MedicalRecordsPage';
 import { SymptomCheckerPage } from './pages/patient/SymptomCheckerPage';
+import { PatientProfilePage } from './pages/patient/PatientProfilePage';
 
 // Doctor Pages
 import { DoctorDashboardPage } from './pages/doctor/DashboardPage';
 import { DoctorAvailabilityPage } from './pages/doctor/AvailabilityPage';
+import { DoctorProfilePage } from './pages/doctor/ProfilePage';
+import { PatientsPage } from './pages/doctor/PatientsPage';
+import { ConsultationsPage } from './pages/doctor/ConsultationsPage';
+import { DoctorPrescriptionsPage } from './pages/doctor/PrescriptionsPage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/DashboardPage';
+import { UsersPage } from './pages/admin/UsersPage';
+import { VerifyDoctorsPage } from './pages/admin/VerifyDoctorsPage';
+import { TransactionsPage } from './pages/admin/TransactionsPage';
 
 // Placeholder Component
 const PlaceholderPage = ({ title }) => (
@@ -45,6 +54,7 @@ export function App() {
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Patient Routes */}
@@ -66,6 +76,10 @@ export function App() {
               path="/patient/symptom-checker"
               element={<SymptomCheckerPage />}
             />
+            <Route
+              path="/patient/profile"
+              element={<PatientProfilePage />}
+            />
           </Route>
 
           {/* Doctor Routes */}
@@ -79,16 +93,20 @@ export function App() {
               element={<DoctorAvailabilityPage />}
             />
             <Route
+              path="/doctor/profile"
+              element={<DoctorProfilePage />}
+            />
+            <Route
               path="/doctor/consultations"
-              element={<PlaceholderPage title="Consultations" />}
+              element={<ConsultationsPage />}
             />
             <Route
               path="/doctor/prescriptions"
-              element={<PlaceholderPage title="Prescriptions" />}
+              element={<DoctorPrescriptionsPage />}
             />
             <Route
               path="/doctor/patients"
-              element={<PlaceholderPage title="Patient Records" />}
+              element={<PatientsPage />}
             />
           </Route>
 
@@ -100,15 +118,15 @@ export function App() {
             />
             <Route
               path="/admin/users"
-              element={<PlaceholderPage title="User Management" />}
+              element={<UsersPage />}
             />
             <Route
               path="/admin/verify-doctors"
-              element={<PlaceholderPage title="Verify Doctors" />}
+              element={<VerifyDoctorsPage />}
             />
             <Route
               path="/admin/transactions"
-              element={<PlaceholderPage title="Transactions" />}
+              element={<TransactionsPage />}
             />
           </Route>
 

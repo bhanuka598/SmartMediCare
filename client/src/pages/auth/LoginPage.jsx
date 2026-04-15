@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Activity } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
@@ -13,24 +13,50 @@ import {
 } from '../../components/shared/Card';
 import { useAuth } from '../../contexts/AuthContext';
 
+const API_URL = 'http://localhost:5000';
+
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('patient');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && userRole) {
+      navigate(`/${userRole}/dashboard`);
+    }
+  }, [isAuthenticated, userRole, authLoading, navigate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate API call
-    setTimeout(() => {
-      login(email, role);
-      navigate(`/${role}/dashboard`);
-    }, 1000);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      login(data.token, data.user);
+      navigate(`/${data.user.role}/dashboard`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -44,7 +70,7 @@ export function LoginPage() {
               <Activity size={24} />
             </div>
             <span className="text-2xl font-bold tracking-tight text-slate-900">
-              HealthSync
+              SmartMediCare
             </span>
           </Link>
         </div>
@@ -94,12 +120,12 @@ export function LoginPage() {
                   <label className="block text-sm font-medium text-slate-700">
                     Password
                   </label>
-                  <a
-                    href="#"
+                  <Link
+                    to="/forgot-password"
                     className="text-sm font-medium text-blue-600 hover:text-blue-500"
                   >
                     Forgot password?
-                  </a>
+                  </Link>
                 </div>
 
                 <Input
@@ -110,6 +136,10 @@ export function LoginPage() {
                   required
                 />
               </div>
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>
+              )}
 
             </CardContent>
 
