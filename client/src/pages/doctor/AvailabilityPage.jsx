@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -8,18 +8,14 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  RefreshCw,
-  X,
-  ChevronLeft,
-  ChevronRight
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
-  CardDescription
+  CardTitle
 } from '../../components/shared/Card';
 
 const API_URL = 'http://localhost:5000';
@@ -44,6 +40,16 @@ const DAY_TO_API = {
   'Sunday': 'sunday'
 };
 
+const INITIAL_DEFAULT_SCHEDULE = {
+  monday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
+  tuesday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
+  wednesday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
+  thursday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
+  friday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
+  saturday: { isAvailable: false, startTime: '09:00', endTime: '13:00' },
+  sunday: { isAvailable: false, startTime: '09:00', endTime: '13:00' }
+};
+
 export function DoctorAvailabilityPage() {
   const [activeTab, setActiveTab] = useState('recurring');
   const [isLoading, setIsLoading] = useState(true);
@@ -54,15 +60,7 @@ export function DoctorAvailabilityPage() {
   const [consultationDuration, setConsultationDuration] = useState(30);
   
   // Default weekly schedule
-  const [defaultSchedule, setDefaultSchedule] = useState({
-    monday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
-    tuesday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
-    wednesday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
-    thursday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
-    friday: { isAvailable: true, startTime: '09:00', endTime: '17:00' },
-    saturday: { isAvailable: false, startTime: '09:00', endTime: '13:00' },
-    sunday: { isAvailable: false, startTime: '09:00', endTime: '13:00' }
-  });
+  const [defaultSchedule, setDefaultSchedule] = useState(INITIAL_DEFAULT_SCHEDULE);
 
   // Specific date schedules (exceptions)
   const [dateExceptions, setDateExceptions] = useState([]);
@@ -79,70 +77,7 @@ export function DoctorAvailabilityPage() {
     endDate: ''
   });
 
-  // Fetch initial data
-  useEffect(() => {
-    fetchAvailabilityData();
-  }, []);
-
-  const fetchAvailabilityData = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${API_URL}/api/doctors/availability`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch availability data');
-      }
-
-      const data = await response.json();
-      
-      if (data.defaultSchedule) {
-        setDefaultSchedule(data.defaultSchedule);
-      }
-      
-      if (data.schedules) {
-        const exceptions = data.schedules.filter(s => s.notes || !isDefaultSchedule(s));
-        setDateExceptions(exceptions);
-      }
-    } catch (err) {
-      console.error('Error fetching availability:', err);
-      setError(err.message || 'Failed to load availability data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isDefaultSchedule = (schedule) => {
-    const dayName = DAYS[schedule.dayOfWeek].toLowerCase();
-    const defaultDay = defaultSchedule[dayName];
-    
-    if (!defaultDay || defaultDay.isAvailable !== schedule.isAvailable) {
-      return false;
-    }
-    
-    if (schedule.timeSlots && schedule.timeSlots.length > 0) {
-      const expectedSlots = generateTimeSlotsFromRange(
-        defaultDay.startTime, 
-        defaultDay.endTime, 
-        consultationDuration
-      );
-      
-      if (schedule.timeSlots.length !== expectedSlots.length) {
-        return false;
-      }
-    }
-    
-    return true;
-  };
-
-  const generateTimeSlotsFromRange = (startTime, endTime, duration) => {
+  const generateTimeSlotsFromRange = useCallback((startTime, endTime, duration) => {
     const slots = [];
     const start = parseTime(startTime);
     const end = parseTime(endTime);
@@ -162,7 +97,72 @@ export function DoctorAvailabilityPage() {
     }
     
     return slots;
-  };
+  }, []);
+
+  const isDefaultSchedule = useCallback((schedule, scheduleConfig) => {
+    const dayName = DAYS[schedule.dayOfWeek].toLowerCase();
+    const defaultDay = scheduleConfig[dayName];
+    
+    if (!defaultDay || defaultDay.isAvailable !== schedule.isAvailable) {
+      return false;
+    }
+    
+    if (schedule.timeSlots && schedule.timeSlots.length > 0) {
+      const expectedSlots = generateTimeSlotsFromRange(
+        defaultDay.startTime, 
+        defaultDay.endTime, 
+        consultationDuration
+      );
+      
+      if (schedule.timeSlots.length !== expectedSlots.length) {
+        return false;
+      }
+    }
+    
+    return true;
+  }, [consultationDuration, generateTimeSlotsFromRange]);
+
+  const fetchAvailabilityData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/api/doctors/availability`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch availability data');
+      }
+
+      const data = await response.json();
+      
+      const resolvedDefaultSchedule = data.defaultSchedule || INITIAL_DEFAULT_SCHEDULE;
+
+      if (data.defaultSchedule) {
+        setDefaultSchedule(resolvedDefaultSchedule);
+      }
+      
+      if (data.schedules) {
+        const exceptions = data.schedules.filter((s) => s.notes || !isDefaultSchedule(s, resolvedDefaultSchedule));
+        setDateExceptions(exceptions);
+      }
+    } catch (err) {
+      console.error('Error fetching availability:', err);
+      setError(err.message || 'Failed to load availability data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isDefaultSchedule]);
+
+  // Fetch initial data
+  useEffect(() => {
+    fetchAvailabilityData();
+  }, [fetchAvailabilityData]);
 
   const handleDefaultScheduleChange = (day, field, value) => {
     setDefaultSchedule(prev => ({

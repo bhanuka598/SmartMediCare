@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Search, Calendar, Clock, Video, MapPin, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
@@ -186,7 +186,7 @@ export function BookAppointmentModal({
   const [availableSlots, setAvailableSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  const fetchAvailableSlots = async () => {
+  const fetchAvailableSlots = useCallback(async () => {
     if (!selectedDoctor || !selectedDate) return;
     
     const doctorId = selectedDoctor.userId || selectedDoctor.id || selectedDoctor._id;
@@ -225,16 +225,16 @@ export function BookAppointmentModal({
       }
       
       setAvailableSlots(slots);
-    } catch (err) {
+    } catch {
       setAvailableSlots(TIME_SLOTS);
     } finally {
       setLoadingSlots(false);
     }
-  };
+  }, [selectedDate, selectedDoctor]);
 
   useEffect(() => {
     fetchAvailableSlots();
-  }, [selectedDoctor, selectedDate]);
+  }, [fetchAvailableSlots]);
 
   // Submit appointment
   const submitAppointment = async () => {
@@ -292,7 +292,7 @@ export function BookAppointmentModal({
       } else {
         setError(data.message || data.error || 'Failed to book appointment');
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setSubmitting(false);

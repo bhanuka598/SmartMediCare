@@ -1,8 +1,9 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useId } from 'react';
 
 export const Input = forwardRef(
   ({ label, error, helperText, className = '', id, ...props }, ref) => {
-    const inputId = id || Math.random().toString(36).substring(7);
+    const generatedId = useId();
+    const inputId = id || generatedId;
 
     return (
       <div className="w-full">
