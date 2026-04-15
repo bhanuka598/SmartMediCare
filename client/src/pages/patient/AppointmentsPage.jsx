@@ -72,7 +72,7 @@ export function AppointmentsPage() {
   const [payLoading, setPayLoading] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState({});
 
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const patientId = user?.id || user?._id;
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -120,7 +120,7 @@ export function AppointmentsPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [patientId]);
 
   useEffect(() => {
     fetchAppointments();
@@ -206,7 +206,7 @@ export function AppointmentsPage() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [patientId, activeTab]);
+  }, [patientId, activeTab, fetchAppointments]);
 
   // Cancel appointment
   const handleCancel = async (appointmentId) => {

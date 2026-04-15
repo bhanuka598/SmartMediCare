@@ -250,7 +250,7 @@ export function BookAppointmentModal({
   const [slotRows, setSlotRows] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  const fetchAvailableSlots = async () => {
+  const fetchAvailableSlots = useCallback(async () => {
     if (!selectedDoctor || !selectedDate) return;
 
     const doctorId = selectedDoctor.userId || selectedDoctor.id || selectedDoctor._id;
@@ -326,7 +326,7 @@ export function BookAppointmentModal({
     } finally {
       setLoadingSlots(false);
     }
-  };
+  }, [selectedDate, selectedDoctor]);
 
   useEffect(() => {
     fetchAvailableSlots();

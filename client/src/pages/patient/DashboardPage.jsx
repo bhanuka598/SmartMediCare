@@ -337,19 +337,6 @@ export function PatientDashboardPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const getCategoryColor = (category) => {
-    const colors = {
-      lab: 'bg-blue-100 text-blue-700',
-      xray: 'bg-purple-100 text-purple-700',
-      mri: 'bg-indigo-100 text-indigo-700',
-      ct: 'bg-pink-100 text-pink-700',
-      prescription: 'bg-green-100 text-green-700',
-      discharge: 'bg-orange-100 text-orange-700',
-      other: 'bg-slate-100 text-slate-700'
-    };
-    return colors[category] || colors.other;
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">

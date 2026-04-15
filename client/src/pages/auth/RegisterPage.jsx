@@ -16,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export function RegisterPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { login, isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, role: userRole, isLoading: authLoading } = useAuth();
 
   const initialRole = searchParams.get('role') || 'patient';
   const [role, setRole] = useState(
@@ -54,8 +54,6 @@ export function RegisterPage() {
   });
 
   const passwordReqs = getPasswordRequirements(password);
-  const allRequirementsMet = Object.values(passwordReqs).every(Boolean);
-
   // Password strength calculation
   const getPasswordStrength = (pwd) => {
     if (!pwd) return { score: 0, label: 'None', color: 'bg-gray-200' };
