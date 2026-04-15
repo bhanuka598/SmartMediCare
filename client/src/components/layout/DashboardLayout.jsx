@@ -1,11 +1,21 @@
 import React from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function DashboardLayout({ allowedRoles }) {
-  const { isAuthenticated, role } = useAuth();
+  const { isAuthenticated, role, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" aria-hidden />
+        <p className="text-sm text-slate-600">Loading your session…</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

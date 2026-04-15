@@ -41,13 +41,16 @@ exports.getAvailabilitySchedule = async (req, res) => {
 exports.getPublicAvailability = async (req, res) => {
   try {
     const { doctorId } = req.params;
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, includeBooked } = req.query;
 
     const doctor = await Doctor.findOne({ userId: doctorId, isActive: true });
 
     if (!doctor) {
       return res.status(404).json({ message: 'Doctor not found' });
     }
+
+    const includeBookedSlots =
+      includeBooked === 'true' || includeBooked === '1' || includeBooked === 'yes';
 
     let schedules = doctor.availability.schedules.filter(s => s.isAvailable);
 
@@ -59,18 +62,27 @@ exports.getPublicAvailability = async (req, res) => {
       );
     }
 
-    // Return only available time slots
+    // Default: hide already-booked slots. includeBooked=true keeps them so booking UIs can show them as blocked.
     const availability = schedules.map(schedule => ({
       date: schedule.date,
       dayOfWeek: schedule.dayOfWeek,
-      timeSlots: schedule.timeSlots.filter(slot => slot.isAvailable && !slot.isBooked)
+      timeSlots: schedule.timeSlots.filter((slot) =>
+        slot.isAvailable && (includeBookedSlots || !slot.isBooked)
+      )
     })).filter(s => s.timeSlots.length > 0);
+
+    // Dates explicitly marked unavailable (e.g. exceptions) — do not fall back to weekly default.
+    const blockedDates = doctor.availability.schedules
+      .filter((s) => !s.isAvailable)
+      .map((s) => new Date(s.date).toISOString().split('T')[0]);
 
     res.json({
       success: true,
       doctorId,
       timeZone: doctor.availability.timeZone,
       consultationDuration: doctor.practice.consultationDuration,
+      defaultSchedule: doctor.availability.defaultSchedule,
+      blockedDates,
       availability
     });
   } catch (error) {

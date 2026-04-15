@@ -86,6 +86,24 @@ const createAppointment = async (appointmentData, userId) => {
     const resolvedPatientPhone = patientPhone || patientProfile?.data?.phone || "";
     const resolvedDoctorName = appointmentData.doctorName || doctorProfile?.data?.name || "";
 
+    const feeFromDoctor =
+      doctorProfile?.success && doctorProfile?.data?.practice?.consultationFee != null
+        ? Number(doctorProfile.data.practice.consultationFee)
+        : null;
+    const feeFromBody =
+      appointmentData.fee !== undefined && appointmentData.fee !== null
+        ? Number(appointmentData.fee)
+        : null;
+    const resolvedFeeRaw =
+      feeFromBody != null && !Number.isNaN(feeFromBody) ? feeFromBody : feeFromDoctor;
+    const resolvedFee =
+      resolvedFeeRaw != null && !Number.isNaN(resolvedFeeRaw) && resolvedFeeRaw >= 0 ? resolvedFeeRaw : 0;
+
+    const allowedPaymentStatuses = ["PENDING", "PAID", "REFUNDED", "FAILED"];
+    const paymentStatus = allowedPaymentStatuses.includes(appointmentData.paymentStatus)
+      ? appointmentData.paymentStatus
+      : "PENDING";
+
     const appointment = await Appointment.create({
       patientId,
       patientName: resolvedPatientName,
@@ -103,6 +121,8 @@ const createAppointment = async (appointmentData, userId) => {
       type: type || "IN_PERSON",
       queueNumber,
       status: "PENDING",
+      fee: resolvedFee,
+      paymentStatus,
       _changedBy: userId,
       _changeReason: "Appointment created"
     });
@@ -150,6 +170,96 @@ const createAppointment = async (appointmentData, userId) => {
   }
 };
 
+const timeToMinutes = (t) => {
+  if (t == null || t === "") return 0;
+  const parts = String(t).trim().split(":");
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  return h * 60 + m;
+};
+
+/** True if [slotStart, slotEnd) overlaps [bookedStart, bookedEnd) (string times HH:mm). */
+const slotIntervalsOverlap = (slotStart, slotEnd, bookedStart, bookedEnd) => {
+  const s = timeToMinutes(slotStart);
+  const e = timeToMinutes(slotEnd || slotStart);
+  const bs = timeToMinutes(bookedStart);
+  const be = timeToMinutes(bookedEnd || bookedStart);
+  return s < be && e > bs;
+};
+
+const WEEKDAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+const generateSlotsFromRange = (startTime, endTime, durationMinutes) => {
+  const slots = [];
+  let cur = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  while (cur + durationMinutes <= end) {
+    const next = cur + durationMinutes;
+    slots.push({
+      start: `${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`,
+      end: `${String(Math.floor(next / 60)).padStart(2, "0")}:${String(next % 60).padStart(2, "0")}`
+    });
+    cur = next;
+  }
+  return slots;
+};
+
+/**
+ * Resolve slot intervals for a calendar date from doctor-service public availability payload:
+ * explicit date schedules first, else weekly defaultSchedule (no generated schedule required).
+ */
+const resolveAllSlotsForDate = (availabilityPayload, date) => {
+  const blockedDates = new Set(availabilityPayload.blockedDates || []);
+  if (blockedDates.has(date)) {
+    return { allSlots: [], hasScheduleForDate: true };
+  }
+
+  const daySchedules = Array.isArray(availabilityPayload.availability)
+    ? availabilityPayload.availability.filter((schedule) => {
+        const scheduleDate = new Date(schedule.date).toISOString().split("T")[0];
+        return scheduleDate === date;
+      })
+    : [];
+
+  if (daySchedules.length > 0) {
+    const seen = new Set();
+    const allSlots = [];
+    for (const schedule of daySchedules) {
+      for (const slot of schedule.timeSlots || []) {
+        const key = `${slot.startTime}-${slot.endTime}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          allSlots.push({ start: slot.startTime, end: slot.endTime });
+        }
+      }
+    }
+    return { allSlots, hasScheduleForDate: true };
+  }
+
+  const defaultSchedule = availabilityPayload.defaultSchedule;
+  const duration = availabilityPayload.consultationDuration || 30;
+  const parts = date.split("-").map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    return { allSlots: [], hasScheduleForDate: false };
+  }
+  const dayRef = new Date(parts[0], parts[1] - 1, parts[2]);
+  const dayName = WEEKDAY_KEYS[dayRef.getDay()];
+  const def = defaultSchedule && defaultSchedule[dayName];
+  if (def && def.isAvailable) {
+    return {
+      allSlots: generateSlotsFromRange(def.startTime, def.endTime, duration),
+      hasScheduleForDate: true
+    };
+  }
+  return { allSlots: [], hasScheduleForDate: true };
+};
+
+const defaultScheduleHasAnyDay = (defaultSchedule) =>
+  defaultSchedule &&
+  ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].some(
+    (day) => defaultSchedule[day]?.isAvailable
+  );
+
 const searchDoctors = async (specialty, filters = {}) => {
   try {
     // If no specialty provided, fetch all doctors
@@ -172,7 +282,12 @@ const searchDoctors = async (specialty, filters = {}) => {
       for (const doctor of doctorList) {
         const doctorIdentifier = doctor.userId || doctor.id || doctor._id;
         const availability = await getDoctorAvailability(doctorIdentifier);
-        if (availability.success && Array.isArray(availability.availability) && availability.availability.length > 0) {
+        const hasConcreteSchedules =
+          availability.success &&
+          Array.isArray(availability.availability) &&
+          availability.availability.length > 0;
+        const hasWeekly = availability.success && defaultScheduleHasAnyDay(availability.defaultSchedule);
+        if (hasConcreteSchedules || hasWeekly) {
           availableDoctors.push(doctor);
         }
       }
@@ -184,13 +299,9 @@ const searchDoctors = async (specialty, filters = {}) => {
       for (const doctor of doctorList) {
         const doctorIdentifier = doctor.userId || doctor.id || doctor._id;
         const availability = await getDoctorAvailability(doctorIdentifier);
-        const hasAvailabilityOnDate = Array.isArray(availability.availability) &&
-          availability.availability.some((schedule) => {
-            const scheduleDate = new Date(schedule.date).toISOString().split("T")[0];
-            return scheduleDate === filters.date && Array.isArray(schedule.timeSlots) && schedule.timeSlots.length > 0;
-          });
-
-        if (availability.success && hasAvailabilityOnDate) {
+        if (!availability.success) continue;
+        const { allSlots } = resolveAllSlotsForDate(availability, filters.date);
+        if (allSlots.length > 0) {
           availableDoctors.push(doctor);
         }
       }
@@ -397,6 +508,42 @@ const updateAppointment = async (id, updateData, userId) => {
     return {
       success: false,
       message: "Error updating appointment",
+      error: error.message
+    };
+  }
+};
+
+const markAppointmentPaid = async (id) => {
+  try {
+    const appointment = await Appointment.findById(id);
+
+    if (!appointment) {
+      return {
+        success: false,
+        message: "Appointment not found"
+      };
+    }
+
+    if (appointment.paymentStatus === "PAID") {
+      return {
+        success: true,
+        message: "Already paid",
+        data: appointment
+      };
+    }
+
+    appointment.paymentStatus = "PAID";
+    await appointment.save();
+
+    return {
+      success: true,
+      message: "Payment recorded",
+      data: appointment
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Error updating payment status",
       error: error.message
     };
   }
@@ -792,23 +939,11 @@ const getAvailableSlots = async (doctorId, date) => {
       end: a.endTime
     }));
 
-    const dailyAvailability = Array.isArray(availability.availability)
-      ? availability.availability.find((schedule) => {
-          const scheduleDate = new Date(schedule.date).toISOString().split("T")[0];
-          return scheduleDate === date;
-        })
-      : null;
+    const { allSlots, hasScheduleForDate } = resolveAllSlotsForDate(availability, date);
 
-    const allSlots = Array.isArray(dailyAvailability?.timeSlots)
-      ? dailyAvailability.timeSlots.map((slot) => ({
-          start: slot.startTime,
-          end: slot.endTime
-        }))
-      : [];
-    const availableSlots = allSlots.filter(slot => {
-      return !bookedSlots.some(booked =>
-        (slot.start >= booked.start && slot.start < booked.end) ||
-        (slot.end > booked.start && slot.end <= booked.end)
+    const availableSlots = allSlots.filter((slot) => {
+      return !bookedSlots.some((booked) =>
+        slotIntervalsOverlap(slot.start, slot.end, booked.start, booked.end)
       );
     });
 
@@ -816,6 +951,8 @@ const getAvailableSlots = async (doctorId, date) => {
       success: true,
       data: {
         date,
+        allSlots,
+        hasScheduleForDate,
         availableSlots,
         bookedSlots,
         totalSlots: allSlots.length,
@@ -903,6 +1040,7 @@ module.exports = {
   getAppointments,
   getAppointmentById,
   updateAppointment,
+  markAppointmentPaid,
   cancelAppointment,
   confirmAppointment,
   rejectAppointment,
