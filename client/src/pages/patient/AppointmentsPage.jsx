@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Loader2, AlertCircle, Plus } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Calendar as CalendarIcon, Loader2, AlertCircle } from 'lucide-react';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
 import { Button } from '../../components/shared/Button';
@@ -70,12 +70,12 @@ export function AppointmentsPage() {
   const [joinLoading, setJoinLoading] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState({});
 
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const patientId = user?.id || user?._id;
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
 
   // Fetch appointments
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     if (!patientId) {
       setError('Please log in to view appointments');
       setLoading(false);
@@ -113,11 +113,11 @@ export function AppointmentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId]);
 
   useEffect(() => {
     fetchAppointments();
-  }, [patientId, activeTab]);
+  }, [activeTab, fetchAppointments]);
 
   // Poll for appointment updates instead of using WebSocket.
   useEffect(() => {
@@ -130,7 +130,7 @@ export function AppointmentsPage() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [patientId, activeTab]);
+  }, [patientId, activeTab, fetchAppointments]);
 
   // Cancel appointment
   const handleCancel = async (appointmentId) => {
