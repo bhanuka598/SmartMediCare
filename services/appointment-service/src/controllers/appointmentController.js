@@ -67,6 +67,19 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
+exports.markAppointmentPaidInternal = async (req, res) => {
+  try {
+    const result = await appointmentService.markAppointmentPaid(req.params.id);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error confirming payment",
+      error: error.message
+    });
+  }
+};
+
 exports.getAppointmentById = async (req, res) => {
   try {
     const result = await appointmentService.getAppointmentById(req.params.id);

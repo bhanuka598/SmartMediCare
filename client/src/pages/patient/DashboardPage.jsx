@@ -23,11 +23,57 @@ import { BookAppointmentModal } from '../../components/appointments/BookAppointm
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+/** Backend statuses that count as "upcoming" on My Appointments (not completed/cancelled). */
+const ACTIVE_APPOINTMENT_STATUSES = new Set(['PENDING', 'CONFIRMED', 'IN_PROGRESS']);
+
+const parseAppointmentStart = (appointmentDate, appointmentTime) => {
+  if (!appointmentDate) return null;
+  const datePart =
+    typeof appointmentDate === 'string'
+      ? appointmentDate.split('T')[0]
+      : new Date(appointmentDate).toISOString().slice(0, 10);
+  const raw = (appointmentTime || '00:00').trim();
+  const [h = '0', m = '0'] = raw.split(':');
+  const hh = String(parseInt(h, 10) || 0).padStart(2, '0');
+  const mm = String(parseInt(m, 10) || 0).padStart(2, '0');
+  const d = new Date(`${datePart}T${hh}:${mm}:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const formatTimeLabel = (timeStr) => {
+  if (!timeStr) return '';
+  const [hours, minutes] = timeStr.split(':');
+  const date = new Date();
+  date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+/** Earliest future appointment that is still active (matches Appointments "Upcoming" tab logic). */
+const pickNextUpcomingAppointment = (list) => {
+  if (!list?.length) return null;
+  const now = Date.now();
+  const upcoming = list
+    .filter((a) => ACTIVE_APPOINTMENT_STATUSES.has((a.status || '').toUpperCase()))
+    .map((a) => {
+      const start = parseAppointmentStart(a.appointmentDate, a.appointmentTime);
+      return start ? { a, startMs: start.getTime() } : null;
+    })
+    .filter(Boolean)
+    .filter((x) => x.startMs >= now)
+    .sort((x, y) => x.startMs - y.startMs);
+  return upcoming[0]?.a ?? null;
+};
+
 export function PatientDashboardPage() {
   const { user, token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [upcomingAppointment, setUpcomingAppointment] = useState(null);
+  const [payLoading, setPayLoading] = useState(null);
   const [recentRecords, setRecentRecords] = useState([]);
   const [recentPrescriptions, setRecentPrescriptions] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -57,6 +103,47 @@ export function PatientDashboardPage() {
   const normalizeAppointmentType = (type) => {
     return type === 'TELEMEDICINE' ? 'video' : 'in-person';
   };
+
+  const handlePay = useCallback(
+    async (appointmentId) => {
+      if (!token) return;
+      try {
+        setPayLoading(appointmentId);
+        const origin = window.location.origin;
+        const checkoutRes = await fetch(`${API_URL}/api/payments/create-checkout-session`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            appointmentId,
+            currency: 'usd',
+            successUrl: `${origin}/patient/appointments?checkout=success`,
+            cancelUrl: `${origin}/patient/appointments?checkout=cancelled`
+          })
+        });
+        const checkoutData = await checkoutRes.json();
+        if (!checkoutRes.ok) {
+          throw new Error(checkoutData.message || 'Could not start payment');
+        }
+        if (checkoutData.url) {
+          if (checkoutData.sessionId) {
+            sessionStorage.setItem('stripe_last_checkout_session', checkoutData.sessionId);
+          }
+          window.location.href = checkoutData.url;
+          return;
+        }
+        throw new Error('No payment page URL returned');
+      } catch (err) {
+        console.error('Dashboard payment checkout:', err);
+        alert(err.message || 'Could not start payment');
+      } finally {
+        setPayLoading(null);
+      }
+    },
+    [token]
+  );
 
   // Fetch with timeout, retry logic, and error handling
   const fetchWithRetry = useCallback(async (url, options = {}, retries = 3, timeout = 10000) => {
@@ -133,25 +220,41 @@ export function PatientDashboardPage() {
         setStats({ totalAppointments: 0, completedAppointments: 0, totalReports: 0, totalPrescriptions: 0 });
       }
 
-      // Fetch upcoming appointments with retry
+      // Next appointment: nearest future booking (same rules as My Appointments > Upcoming).
+      // Note: `status=upcoming` is invalid on the API (becomes UPCOMING in DB). Use dateFrom + client filter.
       try {
+        const today = new Date();
+        const dateFrom = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         const apptData = await fetchWithRetry(
-          `${API_URL}/api/appointments/my-appointments?status=upcoming&limit=1`,
+          `${API_URL}/api/appointments/my-appointments?sortBy=dateAsc&dateFrom=${dateFrom}&limit=50`,
           { headers: { 'Authorization': `Bearer ${token}` } },
           3,
           15000
         );
-        if (apptData.success && apptData.data?.length > 0) {
-          const appt = apptData.data[0];
+        const appt = apptData.success ? pickNextUpcomingAppointment(apptData.data) : null;
+        if (appt) {
+          const fee = Number(appt.fee) || 0;
           setUpcomingAppointment({
             id: appt._id,
             doctorName: appt.doctorName || `Dr. ${appt.doctorId?.slice(-4) || 'Unknown'}`,
             specialty: appt.specialty || 'General',
-            date: new Date(appt.appointmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            time: appt.appointmentTime,
+            date: new Date(appt.appointmentDate).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            }),
+            time: formatTimeLabel(appt.appointmentTime),
             status: normalizeAppointmentStatus(appt.status),
             type: normalizeAppointmentType(appt.type),
-            doctorImage: appt.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'
+            fee,
+            paymentStatus: appt.paymentStatus || 'PENDING',
+            feeFormatted:
+              fee > 0
+                ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(fee)
+                : null,
+            doctorImage:
+              appt.doctorImage ||
+              'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150'
           });
           hasLoadedData = true;
         } else {
@@ -225,7 +328,11 @@ export function PatientDashboardPage() {
   }, [token, fetchWithRetry]);
 
   useEffect(() => {
-    if (token) fetchDashboardData();
+    if (token) {
+      fetchDashboardData();
+    } else {
+      setLoading(false);
+    }
   }, [token, fetchDashboardData]);
 
   const formatDate = (dateString) => {
@@ -378,6 +485,8 @@ export function PatientDashboardPage() {
                 <AppointmentCard
                   appointment={upcomingAppointment}
                   onJoin={() => console.log('Joining call')}
+                  onPay={(id) => handlePay(id)}
+                  isPaymentLoading={payLoading === upcomingAppointment.id}
                 />
               ) : (
                 <div className="text-center py-8 text-slate-500">
@@ -555,7 +664,14 @@ export function PatientDashboardPage() {
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-600">Allergies</span>
                 <span className="font-medium text-slate-900">
-                  {profile?.profile?.allergies?.length > 0 ? profile.profile.allergies.join(', ') : 'None'}
+                  {(() => {
+                    const raw = profile?.profile?.allergies;
+                    if (raw == null || (Array.isArray(raw) && raw.length === 0)) {
+                      return 'None';
+                    }
+                    if (Array.isArray(raw)) return raw.join(', ');
+                    return String(raw);
+                  })()}
                 </span>
               </div>
             </CardContent>

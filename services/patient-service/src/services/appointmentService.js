@@ -57,7 +57,42 @@ const getDoctorAppointments = async (doctorId, token, filters = {}) => {
   }
 };
 
+const getMyAppointments = async (token, filters = {}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (filters.status) queryParams.append('status', filters.status);
+    if (filters.limit != null) queryParams.append('limit', String(filters.limit));
+    if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+    if (filters.dateFrom) queryParams.append('dateFrom', filters.dateFrom);
+    if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
+
+    const qs = queryParams.toString();
+    const response = await fetch(
+      `${APPOINTMENT_SERVICE_URL}/api/appointments/my-appointments${qs ? `?${qs}` : ''}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || `Failed to fetch patient appointments: ${response.status}`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Patient-service my-appointments fetch error:', error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   getAppointmentById,
-  getDoctorAppointments
+  getDoctorAppointments,
+  getMyAppointments
 };
