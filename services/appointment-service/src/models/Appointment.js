@@ -141,10 +141,22 @@ const appointmentSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    currency: {
+      type: String,
+      default: "USD"
+    },
     paymentStatus: {
       type: String,
       enum: ["PENDING", "PAID", "REFUNDED", "FAILED"],
       default: "PENDING"
+    },
+    paymentReference: {
+      type: String,
+      default: ""
+    },
+    paidAt: {
+      type: Date,
+      default: null
     },
     reminders: {
       type: [reminderSchema],

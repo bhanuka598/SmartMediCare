@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const appointmentController = require("../controllers/appointmentController");
-const { protect, optionalAuth, adminOnly, patientOnly, doctorOnly } = require("../middleware/authMiddleware");
+const { protect, optionalAuth, adminOnly, patientOnly, doctorOnly, serviceAuth } = require("../middleware/authMiddleware");
 
 // Public routes - search doctors
 router.get("/doctors/search", optionalAuth, appointmentController.searchDoctorsBySpecialty);
@@ -30,6 +30,8 @@ router.patch("/:id/in-progress", protect, doctorOnly, appointmentController.mark
 router.patch("/:id/no-show", protect, doctorOnly, appointmentController.markNoShow);
 
 // Shared routes (patient or doctor)
+router.get("/internal/:id/payment-context", serviceAuth, appointmentController.getAppointmentPaymentContext);
+router.patch("/internal/:id/payment-status", serviceAuth, appointmentController.updateAppointmentPaymentStatus);
 router.get("/:id", protect, appointmentController.getAppointmentById);
 router.get("/:id/status", protect, appointmentController.getAppointmentStatus);
 router.get("/:id/details", protect, appointmentController.getAppointmentWithSession);

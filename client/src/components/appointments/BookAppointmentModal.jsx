@@ -70,7 +70,9 @@ export function BookAppointmentModal({
   const [symptoms, setSymptoms] = useState('');
   const [duration, setDuration] = useState(30);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [bookingResult, setBookingResult] = useState(null);
   const [patientContact, setPatientContact] = useState({
     name: patientName || '',
     email: patientEmail || '',
@@ -98,6 +100,8 @@ export function BookAppointmentModal({
       setSymptoms('');
       setDuration(30);
       setError(null);
+      setBookingResult(null);
+      setPaymentProcessing(false);
       setPatientContact({
         name: patientName || '',
         email: patientEmail || '',
@@ -287,8 +291,36 @@ export function BookAppointmentModal({
       const data = await response.json();
       
       if (response.ok && data.success) {
-        setStep(4); // Success step
-        onSuccess?.(data.data);
+        const bookedAppointment = data.data;
+        setBookingResult(bookedAppointment);
+
+        if ((bookedAppointment?.fee || 0) > 0) {
+          setPaymentProcessing(true);
+
+          const paymentResponse = await fetch(`${API_URL}/api/payments/checkout-session`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${getToken()}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ appointmentId: bookedAppointment._id })
+          });
+
+          const paymentData = await paymentResponse.json();
+
+          if (!paymentResponse.ok || !paymentData.success || !paymentData.checkoutUrl) {
+            setStep(4);
+            setError(paymentData.message || 'Appointment booked, but payment checkout could not be started.');
+            return;
+          }
+
+          onSuccess?.(bookedAppointment);
+          window.location.href = paymentData.checkoutUrl;
+          return;
+        }
+
+        setStep(4);
+        onSuccess?.(bookedAppointment);
       } else {
         setError(data.message || data.error || 'Failed to book appointment');
       }
@@ -296,6 +328,7 @@ export function BookAppointmentModal({
       setError('Network error. Please try again.');
     } finally {
       setSubmitting(false);
+      setPaymentProcessing(false);
     }
   };
 
@@ -652,7 +685,7 @@ export function BookAppointmentModal({
                   {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    'Book Appointment'
+                    'Book & Pay'
                   )}
                 </Button>
               </div>
@@ -671,6 +704,17 @@ export function BookAppointmentModal({
               <p className="text-slate-500 mb-6">
                 Your appointment with {selectedDoctor?.name} has been scheduled for {selectedDate} at {selectedTime}.
               </p>
+              {bookingResult?.fee > 0 && (
+                <p className="text-sm text-slate-600 mb-6">
+                  Consultation fee: {bookingResult.currency || 'USD'} {bookingResult.fee}. Payment is handled securely through Stripe.
+                </p>
+              )}
+              {paymentProcessing && (
+                <div className="mb-6 flex items-center justify-center gap-2 text-sm text-blue-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Redirecting to secure Stripe checkout...
+                </div>
+              )}
               <Button onClick={onClose} className="w-full">
                 Done
               </Button>

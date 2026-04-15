@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: smartmedicare
+  labels:
+    app: gateway
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+        tier: backend
+    spec:
+      containers:
+      - name: gateway
+        image: smartmedicare/gateway:latest
+        imagePullPolicy: Never  # Use local images for development
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: GATEWAY_PORT
+        - name: APPOINTMENT_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: APPOINTMENT_SERVICE_URL
+        - name: AUTH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: AUTH_SERVICE_URL
+        - name: DOCTOR_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: DOCTOR_SERVICE_URL
+        - name: NOTIFICATION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: NOTIFICATION_SERVICE_URL
+        - name: PATIENT_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: PATIENT_SERVICE_URL
+        - name: PAYMENT_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: PAYMENT_SERVICE_URL
+        - name: TELEMEDICINE_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: smartmedicare-config
+              key: TELEMEDICINE_SERVICE_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: smartmedicare
+  labels:
+    app: gateway
+spec:
+  selector:
+    app: gateway
+  ports:
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  type: ClusterIP

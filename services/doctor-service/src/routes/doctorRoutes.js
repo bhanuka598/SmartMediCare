@@ -19,6 +19,17 @@ router.get('/public/:doctorId', doctorController.getPublicProfile);
 router.get('/public/:doctorId/reviews', doctorController.getReviews);
 router.get('/public/:doctorId/availability', availabilityController.getPublicAvailability);
 
+// Internal endpoints (for other services) - Protected with service-to-service auth
+router.use('/sync', serviceAuthMiddleware);
+router.use('/internal', serviceAuthMiddleware);
+
+router.get('/internal/all', doctorController.getAllDoctors);
+router.get('/internal/:doctorId', doctorController.getDoctorInternalProfile);
+router.post('/sync', doctorController.syncDoctor);
+router.post('/internal/:doctorId/book', availabilityController.bookTimeSlot);
+router.post('/internal/:doctorId/release', availabilityController.releaseTimeSlot);
+router.post('/internal/:doctorId/review', doctorController.addReview);
+
 // Protected routes (doctor auth required)
 router.use(authMiddleware);
 
@@ -58,16 +69,5 @@ router.put('/availability/default', availabilityController.updateDefaultSchedule
 router.post('/availability/generate', availabilityController.generateRecurringAvailability);
 router.delete('/availability/:date', availabilityController.deleteAvailability);
 router.delete('/availability/clear/old', availabilityController.clearOldSchedules);
-
-// Internal endpoints (for other services) - Protected with service-to-service auth
-router.use('/sync', serviceAuthMiddleware);
-router.use('/internal', serviceAuthMiddleware);
-
-router.get('/internal/all', doctorController.getAllDoctors);
-router.get('/internal/:doctorId', doctorController.getDoctorInternalProfile);
-router.post('/sync', doctorController.syncDoctor);
-router.post('/internal/:doctorId/book', availabilityController.bookTimeSlot);
-router.post('/internal/:doctorId/release', availabilityController.releaseTimeSlot);
-router.post('/internal/:doctorId/review', doctorController.addReview);
 
 module.exports = router;

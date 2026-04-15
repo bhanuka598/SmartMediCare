@@ -29,6 +29,38 @@ const generateQueueNumber = async (doctorId, appointmentDate) => {
   return count + 1;
 };
 
+const hydrateAppointmentFee = async (appointmentDoc) => {
+  if (!appointmentDoc) return appointmentDoc;
+
+  const currentFee = Number(appointmentDoc.fee || 0);
+  const currentCurrency = appointmentDoc.currency || "USD";
+
+  if (currentFee > 0 && currentCurrency) {
+    return appointmentDoc;
+  }
+
+  try {
+    const doctorProfile = await getDoctorById(appointmentDoc.doctorId);
+    const doctorFee = Number(doctorProfile?.data?.consultationFee || 0);
+    const doctorCurrency = doctorProfile?.data?.currency || currentCurrency || "USD";
+
+    if (doctorFee > 0) {
+      appointmentDoc.fee = doctorFee;
+      appointmentDoc.currency = doctorCurrency;
+
+      if (typeof appointmentDoc.save === "function") {
+        appointmentDoc.markModified?.("fee");
+        appointmentDoc.markModified?.("currency");
+        await appointmentDoc.save();
+      }
+    }
+  } catch (error) {
+    console.warn("[appointment-service] Failed to hydrate appointment fee:", error.message);
+  }
+
+  return appointmentDoc;
+};
+
 const createAppointment = async (appointmentData, userId) => {
   try {
     const {
@@ -85,6 +117,8 @@ const createAppointment = async (appointmentData, userId) => {
     const resolvedPatientEmail = patientEmail || patientProfile?.data?.email || "";
     const resolvedPatientPhone = patientPhone || patientProfile?.data?.phone || "";
     const resolvedDoctorName = appointmentData.doctorName || doctorProfile?.data?.name || "";
+    const resolvedFee = Number(doctorProfile?.data?.consultationFee || appointmentData.fee || 0);
+    const resolvedCurrency = doctorProfile?.data?.currency || appointmentData.currency || "USD";
 
     const appointment = await Appointment.create({
       patientId,
@@ -101,6 +135,8 @@ const createAppointment = async (appointmentData, userId) => {
       reason: reason || "",
       symptoms: symptoms || [],
       type: type || "IN_PERSON",
+      fee: resolvedFee,
+      currency: resolvedCurrency,
       queueNumber,
       status: "PENDING",
       _changedBy: userId,
@@ -265,6 +301,7 @@ const getAppointments = async (query = {}, options = {}) => {
     }
 
     const appointments = await appointmentsQuery;
+    await Promise.all(appointments.map((appointment) => hydrateAppointmentFee(appointment)));
     const total = await Appointment.countDocuments(dbQuery);
 
     return {
@@ -284,7 +321,7 @@ const getAppointments = async (query = {}, options = {}) => {
 
 const getAppointmentById = async (id) => {
   try {
-    const appointment = await Appointment.findById(id);
+    let appointment = await Appointment.findById(id);
 
     if (!appointment) {
       return {
@@ -292,6 +329,8 @@ const getAppointmentById = async (id) => {
         message: "Appointment not found"
       };
     }
+
+    appointment = await hydrateAppointmentFee(appointment);
 
     return {
       success: true,
@@ -897,6 +936,90 @@ const getAppointmentStatistics = async (query = {}) => {
   }
 };
 
+const getAppointmentPaymentContext = async (id) => {
+  try {
+    let appointment = await Appointment.findById(id);
+
+    if (!appointment) {
+      return {
+        success: false,
+        message: "Appointment not found"
+      };
+    }
+
+    appointment = await hydrateAppointmentFee(appointment);
+
+    return {
+      success: true,
+      data: {
+        appointmentId: appointment._id.toString(),
+        patientId: appointment.patientId,
+        patientName: appointment.patientName || "",
+        patientEmail: appointment.patientEmail || "",
+        doctorId: appointment.doctorId,
+        doctorName: appointment.doctorName || "",
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        specialty: appointment.specialty || "",
+        fee: Number(appointment.fee || 0),
+        currency: appointment.currency || "USD",
+        paymentStatus: appointment.paymentStatus || "PENDING",
+        status: appointment.status
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Error fetching appointment payment context",
+      error: error.message
+    };
+  }
+};
+
+const updateAppointmentPaymentStatus = async (id, paymentData = {}) => {
+  try {
+    const appointment = await Appointment.findById(id);
+
+    if (!appointment) {
+      return {
+        success: false,
+        message: "Appointment not found"
+      };
+    }
+
+    if (paymentData.paymentStatus) {
+      appointment.paymentStatus = paymentData.paymentStatus;
+    }
+
+    if (paymentData.paymentReference !== undefined) {
+      appointment.paymentReference = paymentData.paymentReference || "";
+    }
+
+    if (paymentData.paidAt) {
+      appointment.paidAt = new Date(paymentData.paidAt);
+    } else if (paymentData.paymentStatus === "PAID" && !appointment.paidAt) {
+      appointment.paidAt = new Date();
+    }
+
+    appointment._changedBy = "payment-service";
+    appointment._changeReason = `Payment status updated to ${appointment.paymentStatus}`;
+
+    await appointment.save();
+
+    return {
+      success: true,
+      message: "Appointment payment status updated successfully",
+      data: appointment
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Error updating appointment payment status",
+      error: error.message
+    };
+  }
+};
+
 module.exports = {
   createAppointment,
   searchDoctors,
@@ -913,5 +1036,7 @@ module.exports = {
   rateAppointment,
   getDoctorSchedule,
   getAvailableSlots,
-  getAppointmentStatistics
+  getAppointmentStatistics,
+  getAppointmentPaymentContext,
+  updateAppointmentPaymentStatus
 };
