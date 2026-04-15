@@ -328,7 +328,11 @@ export function PatientDashboardPage() {
   }, [token, fetchWithRetry]);
 
   useEffect(() => {
-    if (token) fetchDashboardData();
+    if (token) {
+      fetchDashboardData();
+    } else {
+      setLoading(false);
+    }
   }, [token, fetchDashboardData]);
 
   const formatDate = (dateString) => {
@@ -660,7 +664,14 @@ export function PatientDashboardPage() {
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-600">Allergies</span>
                 <span className="font-medium text-slate-900">
-                  {profile?.profile?.allergies?.length > 0 ? profile.profile.allergies.join(', ') : 'None'}
+                  {(() => {
+                    const raw = profile?.profile?.allergies;
+                    if (raw == null || (Array.isArray(raw) && raw.length === 0)) {
+                      return 'None';
+                    }
+                    if (Array.isArray(raw)) return raw.join(', ');
+                    return String(raw);
+                  })()}
                 </span>
               </div>
             </CardContent>

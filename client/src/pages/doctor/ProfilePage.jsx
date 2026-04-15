@@ -18,7 +18,8 @@ import {
   DollarSign,
   Clock,
   Languages,
-  FileText
+  FileText,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -90,11 +91,6 @@ export function DoctorProfilePage() {
     isAcceptingNewPatients: true
   });
 
-  // Fetch profile data
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
-
   const fetchProfile = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -124,6 +120,10 @@ export function DoctorProfilePage() {
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const populateFormData = (p) => {
     setFormData({

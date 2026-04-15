@@ -36,7 +36,10 @@ export function AppointmentCard({
     }
   };
 
-  const { variant, label } = statusConfig[appointment.status];
+  const rawStatus = appointment?.status;
+  const statusKey =
+    rawStatus && statusConfig[rawStatus] ? rawStatus : 'upcoming';
+  const { variant, label } = statusConfig[statusKey];
 
   return (
     <Card className="overflow-hidden">

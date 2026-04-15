@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Search, Calendar, Clock, Video, MapPin, Loader2, CheckCircle, CreditCard } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';

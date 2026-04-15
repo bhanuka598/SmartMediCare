@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, Loader2, AlertCircle, Plus } from 'lucide-react';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
@@ -79,7 +79,7 @@ export function AppointmentsPage() {
   const [checkoutBanner, setCheckoutBanner] = useState(null);
 
   // Fetch appointments (silent = no full-page loading state, e.g. after Stripe redirect)
-  const fetchAppointments = async (options = {}) => {
+  const fetchAppointments = useCallback(async (options = {}) => {
     const silent = options.silent === true;
     if (!patientId) {
       setError('Please log in to view appointments');
@@ -124,7 +124,7 @@ export function AppointmentsPage() {
 
   useEffect(() => {
     fetchAppointments();
-  }, [patientId, activeTab]);
+  }, [fetchAppointments, activeTab]);
 
   // Complete Stripe Checkout: session_id from return URL or from sessionStorage (saved before redirect).
   useEffect(() => {
@@ -193,7 +193,7 @@ export function AppointmentsPage() {
       cancelled = true;
       sessionStorage.removeItem(processingKey);
     };
-  }, [searchParams, setSearchParams, patientId]);
+  }, [searchParams, setSearchParams, patientId, fetchAppointments]);
 
   // Poll for appointment updates instead of using WebSocket.
   useEffect(() => {
