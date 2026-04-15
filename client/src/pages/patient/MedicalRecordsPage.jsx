@@ -33,7 +33,7 @@ const formatDate = (dateString) => {
 
 
 export function MedicalRecordsPage() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState('reports');
   const [isDragging, setIsDragging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

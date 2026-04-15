@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState, useEffect, createContext, useContext } from 'react';
 
 const API_URL = 'http://localhost:5000';

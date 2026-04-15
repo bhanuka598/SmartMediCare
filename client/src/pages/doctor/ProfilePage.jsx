@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   User,
   Mail,
   Phone,
-  MapPin,
   Calendar,
   Edit2,
   Save,
@@ -12,7 +11,6 @@ import {
   AlertCircle,
   CheckCircle,
   UserCircle,
-  Briefcase,
   GraduationCap,
   Stethoscope,
   Award,
@@ -95,9 +93,9 @@ export function DoctorProfilePage() {
   // Fetch profile data
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [fetchProfile]);
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -125,7 +123,7 @@ export function DoctorProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const populateFormData = (p) => {
     setFormData({
