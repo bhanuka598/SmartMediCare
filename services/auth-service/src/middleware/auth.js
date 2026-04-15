@@ -13,7 +13,7 @@ exports.verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    req.userId = decoded.userId;
+    req.userId = decoded.userId || decoded.id;
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token' });
@@ -32,13 +32,14 @@ exports.verifyTokenAndUser = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    const user = await User.findById(decoded.userId).select('-password');
+    const userId = decoded.userId || decoded.id;
+    const user = await User.findById(userId).select('-password');
     
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'User not found or inactive' });
     }
     
-    req.userId = decoded.userId;
+    req.userId = userId;
     req.user = user;
     next();
   } catch (error) {
