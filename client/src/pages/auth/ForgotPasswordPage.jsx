@@ -12,6 +12,7 @@ import {
   CardTitle
 } from '../../components/shared/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import { API_URL } from '../../lib/api';
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -80,7 +81,7 @@ export function ForgotPasswordPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5002/api/auth/forgot-password', {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -115,7 +116,7 @@ export function ForgotPasswordPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5002/api/auth/verify-reset-code', {
+      const response = await fetch(`${API_URL}/auth/verify-reset-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: verificationCode })
@@ -142,7 +143,7 @@ export function ForgotPasswordPage() {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:5002/api/auth/forgot-password', {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -182,7 +183,7 @@ export function ForgotPasswordPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5002/api/auth/reset-password', {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: verificationCode, newPassword })

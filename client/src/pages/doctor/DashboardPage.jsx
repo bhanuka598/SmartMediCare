@@ -19,8 +19,7 @@ import {
 } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
 import { Badge } from '../../components/shared/Badge';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 const getStatusVariant = (status) => {
   switch ((status || '').toUpperCase()) {

@@ -20,8 +20,7 @@ import {
 import { Button } from '../../components/shared/Button';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 /** Backend statuses that count as "upcoming" on My Appointments (not completed/cancelled). */
 const ACTIVE_APPOINTMENT_STATUSES = new Set(['PENDING', 'CONFIRMED', 'IN_PROGRESS']);

@@ -12,6 +12,7 @@ import {
   CardTitle
 } from '../../components/shared/Card';
 import { useAuth } from '../../contexts/AuthContext';
+import { API_URL } from '../../lib/api';
 
 export function RegisterPage() {
   const [searchParams] = useSearchParams();
@@ -85,7 +86,7 @@ export function RegisterPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/send-verification', {
+      const response = await fetch(`${API_URL}/auth/send-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, role })
@@ -120,7 +121,7 @@ export function RegisterPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-email', {
+      const response = await fetch(`${API_URL}/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: verificationCode })
@@ -147,7 +148,7 @@ export function RegisterPage() {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/send-verification', {
+      const response = await fetch(`${API_URL}/auth/send-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, role })
@@ -184,7 +185,7 @@ export function RegisterPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -215,7 +216,7 @@ export function RegisterPage() {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/send-admin-code', {
+      const response = await fetch(`${API_URL}/auth/send-admin-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })

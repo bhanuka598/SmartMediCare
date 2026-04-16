@@ -25,8 +25,8 @@ import {
   CardTitle
 } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
+import { API_URL } from '../../lib/api';
 
-const API_URL = 'http://localhost:5000';
 const SRI_LANKA_CODE = '+94';
 
 const normalizeSriLankanPhone = (value) => {
