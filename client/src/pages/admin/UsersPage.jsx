@@ -21,10 +21,7 @@ import {
 import { Badge } from '../../components/shared/Badge';
 import { Input } from '../../components/shared/Input';
 import { Button } from '../../components/shared/Button';
-
-// Mock API URL if not globally defined, though typically it might be in an env var
-// Falling back to localhost 5000 as per context
-const API_URL = 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 export function UsersPage() {
   const [users, setUsers] = useState([]);

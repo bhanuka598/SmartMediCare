@@ -12,8 +12,7 @@ import {
   CardTitle
 } from '../../components/shared/Card';
 import { useAuth } from '../../contexts/AuthContext';
-
-const API_URL = 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');

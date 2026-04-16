@@ -9,8 +9,7 @@ import {
   CardTitle
 } from '../../components/shared/Card';
 import { useAuth } from '../../contexts/AuthContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 // Helper to format file size
 const formatFileSize = (bytes) => {

@@ -20,8 +20,7 @@ import {
 } from '../../components/shared/Card';
 import { Badge } from '../../components/shared/Badge';
 import { Button } from '../../components/shared/Button';
-
-const API_URL = 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 export function VerifyDoctorsPage() {
   const [doctors, setDoctors] = useState([]);

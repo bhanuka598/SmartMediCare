@@ -23,8 +23,7 @@ import {
 import { Badge } from '../../components/shared/Badge';
 import { Button } from '../../components/shared/Button';
 import { useNavigate } from 'react-router-dom';
-
-const API_URL = 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();

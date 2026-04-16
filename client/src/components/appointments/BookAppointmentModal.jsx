@@ -3,8 +3,7 @@ import { X, Search, Calendar, Clock, Video, MapPin, Loader2, CheckCircle, Credit
 import { Button } from '../shared/Button';
 import { Input } from '../shared/Input';
 import { Card } from '../shared/Card';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 const SPECIALTIES = [
   'Cardiology',

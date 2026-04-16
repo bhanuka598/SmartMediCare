@@ -17,8 +17,7 @@ import {
   CardHeader,
   CardTitle
 } from '../../components/shared/Card';
-
-const API_URL = 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 const DAYS = [
   'Monday',

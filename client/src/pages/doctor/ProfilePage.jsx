@@ -29,6 +29,7 @@ import {
   CardTitle
 } from '../../components/shared/Card';
 import { Button } from '../../components/shared/Button';
+import { API_URL } from '../../lib/api';
 
 const SPECIALTIES = [
   'Cardiology',
@@ -42,8 +43,6 @@ const SPECIALTIES = [
   'Ophthalmology',
   'Gynecology'
 ];
-
-const API_URL = 'http://localhost:5000';
 
 export function DoctorProfilePage() {
   const { user } = useAuth();

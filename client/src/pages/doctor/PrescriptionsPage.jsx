@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ClipboardList, Loader2, AlertCircle, Pill, Calendar, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/shared/Card';
 import { useAuth } from '../../contexts/AuthContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../../lib/api';
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
