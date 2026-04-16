@@ -15,7 +15,6 @@ services:
       - gateway
 
     environment:
-      - VITE_API_URL=/api
       - VITE_DEV_PROXY_TARGET=http://gateway:5000
 
     networks:

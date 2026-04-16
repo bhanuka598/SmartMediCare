@@ -3,8 +3,6 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile.prod
-      args:
-        VITE_API_URL: /api
     container_name: client
     ports:
       - "80:80"
