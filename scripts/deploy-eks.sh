@@ -54,10 +54,10 @@ if ! eksctl get cluster "$CLUSTER_NAME" --region "$REGION" &> /dev/null; then
       --name "$CLUSTER_NAME" \
       --region "$REGION" \
       --nodegroup-name managed-nodes \
-      --node-type t3.medium \
-      --nodes 3 \
-      --nodes-min 2 \
-      --nodes-max 5 \
+      --node-type t3.micro \
+      --nodes 1 \
+      --nodes-min 1 \
+      --nodes-max 1 \
       --managed
     
     echo "  Cluster created successfully"
