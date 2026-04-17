@@ -44,6 +44,8 @@ services:
       PORT: 5002
       MONGO_URI: ${MONGO_AUTH_URI}
       JWT_SECRET: ${JWT_SECRET}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
     networks:
       - smartcare-net
 
