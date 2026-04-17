@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, Loader2, AlertCircle, Plus } from 'lucide-react';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
+import { UpdateAppointmentModal } from '../../components/appointments/UpdateAppointmentModal';
 import { Button } from '../../components/shared/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_URL } from '../../lib/api';
@@ -76,6 +77,7 @@ export function AppointmentsPage() {
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [checkoutBanner, setCheckoutBanner] = useState(null);
+  const [updateModalAppointment, setUpdateModalAppointment] = useState(null);
 
   // Fetch appointments (silent = no full-page loading state, e.g. after Stripe redirect)
   const fetchAppointments = useCallback(async (options = {}) => {
@@ -401,6 +403,7 @@ export function AppointmentsPage() {
       typeof app.fee === 'number' && app.fee > 0
         ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(app.fee)
         : null,
+    canModify: ['PENDING', 'CONFIRMED'].includes(app.status),
     originalData: app // Keep original data for reference
   });
 
@@ -440,6 +443,11 @@ export function AppointmentsPage() {
       if (activeTab === 'upcoming') return app.status === 'upcoming';
       return app.status === 'completed' || app.status === 'cancelled';
     });
+
+  const openUpdateAppointment = (appointmentId) => {
+    const apt = filteredAppointments.find((a) => a.id === appointmentId);
+    if (apt?.canModify) setUpdateModalAppointment(apt);
+  };
 
   // Render loading state
   if (loading) {
@@ -557,6 +565,7 @@ export function AppointmentsPage() {
               trackingStatus={trackingStatus[appointment.id]}
               onJoin={(id) => handleJoin(id)}
               onCancel={(id) => handleCancel(id)}
+              onUpdate={(id) => openUpdateAppointment(id)}
               onPay={(id) => handlePay(id)}
               onViewNotes={(id) => handleViewNotes(id)}
               onRate={(id, rating, feedback) => handleRate(id, rating, feedback)}
@@ -592,6 +601,16 @@ export function AppointmentsPage() {
         patientName={user?.name || user?.username}
         patientEmail={user?.email}
         patientPhone={user?.phone}
+      />
+
+      <UpdateAppointmentModal
+        isOpen={!!updateModalAppointment}
+        onClose={() => setUpdateModalAppointment(null)}
+        onSuccess={() => {
+          fetchAppointments({ silent: true });
+          setUpdateModalAppointment(null);
+        }}
+        appointment={updateModalAppointment}
       />
     </div>
   );
