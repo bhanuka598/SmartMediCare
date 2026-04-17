@@ -125,6 +125,8 @@ services:
       PORT: 5007
       MONGO_URI: ${MONGO_TELEMEDICINE_URI}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:5001
     networks:
       - smartcare-net
 
