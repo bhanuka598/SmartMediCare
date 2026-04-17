@@ -129,6 +129,10 @@ services:
 
       - INTERNAL_SERVICE_SECRET=secret
 
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:5001
+
+      - PATIENT_SERVICE_URL=http://patient-service:5005
+
     networks:
 
       - smartcare-net
