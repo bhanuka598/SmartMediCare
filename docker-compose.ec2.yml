@@ -69,6 +69,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       AUTH_SERVICE_URL: http://auth-service:5002
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:5001
+      PATIENT_SERVICE_URL: http://patient-service:5005
     networks:
       - smartcare-net
 
