@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartmedicare-ingress
+  namespace: smartmedicare
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  rules:
+  # Option 1: Without custom domain
+  - http:
+      paths:
+      # Frontend - serve React app
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: client
+            port:
+              number: 80
+        pathType: Prefix
+      # API Gateway - route all /gateway/* requests to gateway
+      - path: /gateway
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway
+            port:
+              number: 5000
+        pathType: Prefix
