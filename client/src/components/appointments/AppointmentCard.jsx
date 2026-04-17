@@ -10,9 +10,11 @@ export function AppointmentCard({
   onCancel,
   onPay,
   onViewNotes,
+  onUpdate,
   isJoinLoading = false,
   isCancelLoading = false,
-  isPaymentLoading = false
+  isPaymentLoading = false,
+  isUpdateLoading = false
 }) {
   const paymentPending =
     String(appointment.paymentStatus || '').toUpperCase() === 'PENDING';
@@ -129,6 +131,21 @@ export function AppointmentCard({
 
               {appointment.status === 'upcoming' && (
                 <>
+                  {appointment.canModify && onUpdate && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onUpdate(appointment.id)}
+                      disabled={isUpdateLoading}
+                      className="flex-1 sm:flex-none"
+                    >
+                      {isUpdateLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Update'
+                      )}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
