@@ -12,8 +12,8 @@
 set -e
 
 # Configuration - UPDATE THESE VALUES
-ACCOUNT_ID="your-aws-account-id"
-REGION="us-east-1"
+ACCOUNT_ID="325087565177"
+REGION="ap-south-1"
 CLUSTER_NAME="smartmedicare"
 NAMESPACE="smartmedicare"
 
@@ -114,32 +114,9 @@ for svc in "${SERVICES[@]}"; do
     echo "  Pushed smartmedicare/$svc"
 done
 
-# Step 6: Install AWS Load Balancer Controller
+# Step 6: Deploy to Kubernetes (Skipping ALB Controller - using NodePort)
 echo ""
-echo "[6/8] Installing AWS Load Balancer Controller..."
-
-if ! kubectl get serviceaccount aws-load-balancer-controller -n kube-system &> /dev/null; then
-    eksctl create iamserviceaccount \
-        --cluster="$CLUSTER_NAME" \
-        --namespace=kube-system \
-        --name=aws-load-balancer-controller \
-        --attach-policy-arn=arn:aws:iam::aws:policy/AWSLoadBalancerControllerIAMPolicy \
-        --approve
-    
-    helm repo add eks https://aws.github.io/eks-charts
-    helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
-        --namespace kube-system \
-        --set clusterName="$CLUSTER_NAME" \
-        --set serviceAccount.create=false \
-        --set serviceAccount.name=aws-load-balancer-controller
-    echo "  Load Balancer Controller installed"
-else
-    echo "  Load Balancer Controller already installed"
-fi
-
-# Step 7: Deploy to Kubernetes
-echo ""
-echo "[7/8] Deploying to Kubernetes..."
+echo "[6/8] Deploying to Kubernetes..."
 
 # Update image tags in deployment file
 sed -i "s|<ACCOUNT_ID>|$ACCOUNT_ID|g" eks/03-deployments.yaml
@@ -149,14 +126,12 @@ kubectl apply -f eks/00-namespace.yaml
 kubectl apply -f eks/01-configmap.yaml
 kubectl apply -f eks/02-secrets.yaml
 kubectl apply -f eks/03-deployments.yaml
-kubectl apply -f eks/04-ingress.yaml
-kubectl apply -f eks/05-autoscaling.yaml
 
 echo "  Deployment complete"
 
-# Step 8: Verify deployment
+# Step 7: Verify deployment
 echo ""
-echo "[8/8] Verifying deployment..."
+echo "[7/7] Verifying deployment..."
 
 echo ""
 echo "Checking pods..."

@@ -67,7 +67,8 @@ spec:
   - port: 80
     targetPort: 3000
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30080
 
 ---
 # =============================================================================
@@ -143,7 +144,8 @@ spec:
   - port: 5000
     targetPort: 5000
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30500
 
 ---
 # =============================================================================
@@ -217,7 +219,8 @@ spec:
   - port: 5002
     targetPort: 5002
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30502
 
 ---
 # =============================================================================
@@ -291,7 +294,8 @@ spec:
   - port: 5005
     targetPort: 5005
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30505
 
 ---
 # =============================================================================
@@ -365,7 +369,8 @@ spec:
   - port: 5003
     targetPort: 5003
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30503
 
 ---
 # =============================================================================
@@ -439,7 +444,8 @@ spec:
   - port: 5001
     targetPort: 5001
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30501
 
 ---
 # =============================================================================
@@ -513,7 +519,8 @@ spec:
   - port: 5004
     targetPort: 5004
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30504
 
 ---
 # =============================================================================
@@ -587,7 +594,8 @@ spec:
   - port: 5006
     targetPort: 5006
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30506
 
 ---
 # =============================================================================
@@ -661,4 +669,5 @@ spec:
   - port: 5007
     targetPort: 5007
     name: http
-  type: ClusterIP
+  type: NodePort
+  nodePort: 30507
