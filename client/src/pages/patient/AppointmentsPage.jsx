@@ -495,38 +495,6 @@ export function AppointmentsPage() {
       originalData: app // Keep original data for reference
     };
   };
-  const transformAppointment = (app) => ({
-    id: app._id,
-    doctorName: app.doctorName || 'Unknown Doctor',
-    specialty: app.specialty,
-    date: formatDate(app.appointmentDate),
-    time: formatTime(app.appointmentTime),
-    endTime: app.endTime ? formatTime(app.endTime) : null,
-    status: mapStatus(app.status),
-    statusLabel: getStatusLabel(app.status),
-    rawStatus: app.status,
-    type: app.type === 'TELEMEDICINE' ? 'video' : 'in-person',
-    doctorImage: app.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
-    meetingLink: app.meetingLink,
-    queueNumber: app.queueNumber,
-    estimatedStartTime: app.estimatedStartTime,
-    duration: app.duration,
-    reason: app.reason,
-    symptoms: app.symptoms,
-    doctorNotes: app.doctorNotes,
-    cancellationReason: app.cancellationReason,
-    rescheduleCount: app.rescheduleCount,
-    rating: app.rating,
-    canRate: app.status === 'COMPLETED' && !app.rating?.score,
-    fee: app.fee ?? 0,
-    paymentStatus: app.paymentStatus || 'PENDING',
-    feeFormatted:
-      typeof app.fee === 'number' && app.fee > 0
-        ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(app.fee)
-        : null,
-    canModify: ['PENDING', 'CONFIRMED'].includes(app.status),
-    originalData: app // Keep original data for reference
-  });
 
   // Refresh a single appointment's status on demand.
   const refreshAppointmentStatus = async (appointmentId) => {
@@ -740,6 +708,7 @@ export function AppointmentsPage() {
         isSubmitting={refundLoading === refundModalAppointment?.id}
         errorMessage={refundModalError}
         onSubmit={handleRefundSubmit}
+      />
       <UpdateAppointmentModal
         isOpen={!!updateModalAppointment}
         onClose={() => setUpdateModalAppointment(null)}
