@@ -24,6 +24,7 @@ import { Badge } from '../../components/shared/Badge';
 import { Button } from '../../components/shared/Button';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../../lib/api';
+import { amountToLkr, formatLkr } from '../../lib/currency';
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -81,10 +82,10 @@ export function AdminDashboardPage() {
         const todayStr = today.toDateString();
         monthlyRevenue = transactions
           .filter(t => t.status === 'completed' && new Date(t.createdAt) >= thirtyDaysAgo)
-          .reduce((sum, t) => sum + (t.amount || 0), 0);
+          .reduce((sum, t) => sum + amountToLkr(t.amount, t.currency), 0);
         todayRevenue = transactions
           .filter(t => t.status === 'completed' && new Date(t.createdAt).toDateString() === todayStr)
-          .reduce((sum, t) => sum + (t.amount || 0), 0);
+          .reduce((sum, t) => sum + amountToLkr(t.amount, t.currency), 0);
       }
 
       setStats({
@@ -135,9 +136,7 @@ export function AdminDashboardPage() {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
-  };
+  const formatCurrency = (amountLkr) => formatLkr(amountLkr);
 
   return (
     <div className="space-y-6">
