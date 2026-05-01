@@ -95,6 +95,9 @@ kubectl apply -f kubernetes/04-ingress.yaml
 kubectl get pods -n smartmedicare
 kubectl get svc -n smartmedicare
 
+# Access the client for testing
+kubectl port-forward svc/client 80:80 -n smartmedicare
+
 # Access the gateway API for testing
 kubectl port-forward svc/gateway 5000:5000 -n smartmedicare
 ```
