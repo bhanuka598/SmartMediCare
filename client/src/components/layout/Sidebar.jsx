@@ -11,7 +11,8 @@ import {
   ClipboardList,
   CreditCard,
   ShieldCheck,
-  User
+  User,
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -40,7 +41,8 @@ export function Sidebar() {
     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/users', icon: Users, label: 'User Management' },
     { to: '/admin/verify-doctors', icon: ShieldCheck, label: 'Verify Doctors' },
-    { to: '/admin/transactions', icon: CreditCard, label: 'Transactions' }
+    { to: '/admin/transactions', icon: CreditCard, label: 'Transactions' },
+    { to: '/admin/refunds', icon: RotateCcw, label: 'Refunds' }
   ];
 
   const links =

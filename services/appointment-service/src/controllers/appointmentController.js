@@ -80,6 +80,32 @@ exports.markAppointmentPaidInternal = async (req, res) => {
   }
 };
 
+exports.markAppointmentRefundedInternal = async (req, res) => {
+  try {
+    const result = await appointmentService.markAppointmentRefunded(req.params.id);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error confirming refund",
+      error: error.message
+    });
+  }
+};
+
+exports.getAppointmentByIdInternal = async (req, res) => {
+  try {
+    const result = await appointmentService.getAppointmentById(req.params.id);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching appointment",
+      error: error.message
+    });
+  }
+};
+
 exports.getAppointmentById = async (req, res) => {
   try {
     const result = await appointmentService.getAppointmentById(req.params.id);
