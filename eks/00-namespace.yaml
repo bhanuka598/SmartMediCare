@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: smartmedicare
-  labels:
-    name: smartmedicare
-    environment: production

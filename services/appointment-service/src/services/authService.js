@@ -156,6 +156,7 @@ module.exports = {
   getUserProfileFromAuthService,
   getUserByIdFromAuthService,
   isAuthServiceHealthy,
+  getServiceHealth,
   generateServiceToken,
   AUTH_SERVICE_URL,
   INTERNAL_SERVICE_SECRET

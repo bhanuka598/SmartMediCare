@@ -1,11 +1,10 @@
 /**
  * Auth Service Client
  * Handles inter-service communication with auth service
- * Uses hardcoded configuration - no environment variables required
  */
 
-const AUTH_SERVICE_URL = 'http://localhost:5002';
-const INTERNAL_SERVICE_SECRET = 'secret';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:5002';
+const INTERNAL_SERVICE_SECRET = process.env.INTERNAL_SERVICE_SECRET || 'secret';
 
 /**
  * Verify token with auth service

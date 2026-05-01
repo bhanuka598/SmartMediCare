@@ -4,6 +4,7 @@ import { Calendar as CalendarIcon, Loader2, AlertCircle, Plus } from 'lucide-rea
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
 import { RefundRequestModal } from '../../components/appointments/RefundRequestModal';
+import { UpdateAppointmentModal } from '../../components/appointments/UpdateAppointmentModal';
 import { Button } from '../../components/shared/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_URL } from '../../lib/api';
@@ -81,6 +82,7 @@ export function AppointmentsPage() {
   const [refundModalError, setRefundModalError] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [checkoutBanner, setCheckoutBanner] = useState(null);
+  const [updateModalAppointment, setUpdateModalAppointment] = useState(null);
 
   // Fetch appointments (silent = no full-page loading state, e.g. after Stripe redirect)
   const fetchAppointments = useCallback(async (options = {}) => {
@@ -493,6 +495,38 @@ export function AppointmentsPage() {
       originalData: app // Keep original data for reference
     };
   };
+  const transformAppointment = (app) => ({
+    id: app._id,
+    doctorName: app.doctorName || 'Unknown Doctor',
+    specialty: app.specialty,
+    date: formatDate(app.appointmentDate),
+    time: formatTime(app.appointmentTime),
+    endTime: app.endTime ? formatTime(app.endTime) : null,
+    status: mapStatus(app.status),
+    statusLabel: getStatusLabel(app.status),
+    rawStatus: app.status,
+    type: app.type === 'TELEMEDICINE' ? 'video' : 'in-person',
+    doctorImage: app.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
+    meetingLink: app.meetingLink,
+    queueNumber: app.queueNumber,
+    estimatedStartTime: app.estimatedStartTime,
+    duration: app.duration,
+    reason: app.reason,
+    symptoms: app.symptoms,
+    doctorNotes: app.doctorNotes,
+    cancellationReason: app.cancellationReason,
+    rescheduleCount: app.rescheduleCount,
+    rating: app.rating,
+    canRate: app.status === 'COMPLETED' && !app.rating?.score,
+    fee: app.fee ?? 0,
+    paymentStatus: app.paymentStatus || 'PENDING',
+    feeFormatted:
+      typeof app.fee === 'number' && app.fee > 0
+        ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(app.fee)
+        : null,
+    canModify: ['PENDING', 'CONFIRMED'].includes(app.status),
+    originalData: app // Keep original data for reference
+  });
 
   // Refresh a single appointment's status on demand.
   const refreshAppointmentStatus = async (appointmentId) => {
@@ -530,6 +564,11 @@ export function AppointmentsPage() {
       if (activeTab === 'upcoming') return app.status === 'upcoming';
       return app.status === 'completed' || app.status === 'cancelled';
     });
+
+  const openUpdateAppointment = (appointmentId) => {
+    const apt = filteredAppointments.find((a) => a.id === appointmentId);
+    if (apt?.canModify) setUpdateModalAppointment(apt);
+  };
 
   // Render loading state
   if (loading) {
@@ -647,6 +686,7 @@ export function AppointmentsPage() {
               trackingStatus={trackingStatus[appointment.id]}
               onJoin={(id) => handleJoin(id)}
               onCancel={(id) => handleCancel(id)}
+              onUpdate={(id) => openUpdateAppointment(id)}
               onPay={(id) => handlePay(id)}
               onRefund={() => handleRefund(appointment)}
               onViewNotes={(id) => handleViewNotes(id)}
@@ -700,6 +740,14 @@ export function AppointmentsPage() {
         isSubmitting={refundLoading === refundModalAppointment?.id}
         errorMessage={refundModalError}
         onSubmit={handleRefundSubmit}
+      <UpdateAppointmentModal
+        isOpen={!!updateModalAppointment}
+        onClose={() => setUpdateModalAppointment(null)}
+        onSuccess={() => {
+          fetchAppointments({ silent: true });
+          setUpdateModalAppointment(null);
+        }}
+        appointment={updateModalAppointment}
       />
     </div>
   );

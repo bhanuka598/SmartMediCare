@@ -5,14 +5,12 @@
 | Requirement | Implementation |
 |-------------|----------------|
 | Microservices Architecture | 8 backend services + React frontend |
-| Docker | Docker Compose for local, ECR for cloud |
+| Docker | Docker Compose for local |
 | Kubernetes | EKS for cloud deployment |
 | RESTful APIs | Express.js services with REST endpoints |
 | 3 User Roles | Patient, Doctor, Admin with JWT auth |
-| Video Consultation | Telemedicine service (Jitsi/Ago
-
-ra integration ready) |
-| Payment | Payment service (Stripe/PayHere ready) |
+| Video Consultation | Telemedicine service (Jitsi integration ready) |
+| Payment | Payment service (Stripe ready) |
 | Notifications | Notification service (SMS/Email ready) |
 
 ---
@@ -50,89 +48,59 @@ docker compose logs gateway
 
 ---
 
-## Option 2: Kubernetes on Ubuntu (Minikube)
+## Option 2: Kubernetes on Windows (Minikube)
 
 ### Prerequisites
-```bash
-# Install Minikube
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
+```powershell
+# Install Docker Desktop
+# Download from https://www.docker.com/get-started and enable WSL 2 / Docker Engine
 
-# Install kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x kubectl
-sudo mv kubectl /usr/local/bin/
+# Install Chocolatey if not already installed
+Set-ExecutionPolicy Bypass -Scope Process -Force;
+[System.Net.WebRequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials;
+iwr https://community.chocolatey.org/install.ps1 -UseBasicParsing | iex
 
-# Start Minikube
+# Install Minikube and kubectl
+choco install minikube kubernetes-cli -y
+
+# Start Minikube with Docker driver
 minikube start --driver=docker
 minikube addons enable ingress
 ```
 
 ### Deploy
-```bash
+```powershell
+# Build Docker images
+docker compose build
+
+# Load images into Minikube so Kubernetes can use local images
+minikube image load smartmedicare-client:prod
+minikube image load smartmedicare-gateway:latest
+minikube image load smartmedicare-auth-service:latest
+minikube image load smartmedicare-patient-service:latest
+minikube image load smartmedicare-doctor-service:latest
+minikube image load smartmedicare-appointment-service:latest
+minikube image load smartmedicare-notification-service:latest
+minikube image load smartmedicare-payment-service:latest
+minikube image load smartmedicare-telemedicine-service:latest
+
 # Apply Kubernetes manifests
 kubectl apply -f kubernetes/00-namespace.yaml
 kubectl apply -f kubernetes/01-configmap.yaml
 kubectl apply -f kubernetes/02-secrets.yaml
 kubectl apply -f kubernetes/03-deployments.yaml
-kubectl apply -f kubernetes/04-services.yaml
-kubectl apply -f kubernetes/05-ingress.yaml
+kubectl apply -f kubernetes/04-ingress.yaml
 
 # Check status
 kubectl get pods -n smartmedicare
 kubectl get svc -n smartmedicare
 
-# Port forward for testing
+# Access the client for testing
+kubectl port-forward svc/client 80:80 -n smartmedicare
+
+# Access the gateway API for testing
 kubectl port-forward svc/gateway 5000:5000 -n smartmedicare
 ```
-
----
-
-## Option 3: AWS EKS Deployment
-
-### Prerequisites
-```bash
-# Install unzip first (required for AWS CLI)
-sudo apt update
-sudo apt install -y unzip
-
-# Install AWS CLI
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip -q awscliv2.zip
-sudo bash ./aws/install
-
-# Verify AWS CLI installation
-aws --version
-
-# Install eksctl
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-sudo mv /tmp/eksctl /usr/local/bin/
-
-# Install kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x kubectl
-sudo mv kubectl /usr/local/bin/
-
-# Configure AWS
-aws configure
-# Enter your AWS Access Key ID, Secret Access Key, Region
-```
-
-### Deploy
-```bash
-# Make script executable
-chmod +x scripts/deploy-eks.sh
-
-# Update ACCOUNT_ID in script
-nano scripts/deploy-eks.sh
-
-# Run deployment
-./scripts/deeks.sh
-
-# Get ALB URL
-kubectl get ingress -n smartmedicare -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-```
-
 ---
 
 ## Service Architecture
@@ -209,39 +177,11 @@ kubectl get ingress -n smartmedicare -o jsonpath='{.status.loadBalancer.ingress[
 
 ---
 
-## Environment Variables
-
-Create `.env` file:
-```env
-# MongoDB
-MONGODB_URI=mongodb://mongo:27017/smartmedicare
-
-# JWT
-JWT_SECRET=your-secret-key
-JWT_EXPIRY=24h
-
-# Services
-PORT=5000
-
-# Stripe (Sandbox)
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-
-# SMS (Twilio)
-TWILIO_ACCOUNT_SID=your_sid
-TWILIO_AUTH_TOKEN=your_token
-
-# Email
-SMTP_HOST=smtp.gmail.com
-SMTP_USER=your-email
-SMTP_PASS=your-app-password
-```
-
 ---
 
 ## Troubleshooting
 
-```bash
+```powershell
 # Check logs
 docker compose logs -f gateway
 kubectl logs -f deployment/gateway -n smartmedicare
@@ -250,7 +190,12 @@ kubectl logs -f deployment/gateway -n smartmedicare
 docker compose restart gateway
 kubectl rollout restart deployment/gateway -n smartmedicare
 
+# Validate Minikube
+minikube status
+minikube addons list
+
 # Check network
 docker network ls
 kubectl get svc -n smartmedicare
+kubectl get pods -n smartmedicare
 ```
