@@ -449,14 +449,14 @@ const updateAppointment = async (id, updateData, userId) => {
     const newTime = appointmentTime || appointment.appointmentTime;
     const newDuration = duration || appointment.duration;
 
-    if (isPastDateTime(newDate, newTime)) {
-      return {
-        success: false,
-        message: "Cannot set an appointment in the past"
-      };
-    }
-
     if (appointmentDate || appointmentTime) {
+      if (isPastDateTime(newDate, newTime)) {
+        return {
+          success: false,
+          message: "Cannot set an appointment in the past"
+        };
+      }
+
       const conflictingSlot = await Appointment.findOne({
         _id: { $ne: id },
         doctorId: appointment.doctorId,

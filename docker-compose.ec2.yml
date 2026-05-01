@@ -44,6 +44,8 @@ services:
       PORT: 5002
       MONGO_URI: ${MONGO_AUTH_URI}
       JWT_SECRET: ${JWT_SECRET}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
     networks:
       - smartcare-net
 
@@ -69,6 +71,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       AUTH_SERVICE_URL: http://auth-service:5002
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:5001
+      PATIENT_SERVICE_URL: http://patient-service:5005
     networks:
       - smartcare-net
 
@@ -108,8 +112,14 @@ services:
     container_name: notification-service
     environment:
       PORT: 5004
+      MONGO_URI: ${MONGO_NOTIFICATION_URI}
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT}
+      EMAIL_SECURE: ${EMAIL_SECURE}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
       EMAIL_FROM: ${EMAIL_FROM}
     networks:
       - smartcare-net
@@ -121,6 +131,8 @@ services:
       PORT: 5007
       MONGO_URI: ${MONGO_TELEMEDICINE_URI}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:5001
     networks:
       - smartcare-net
 

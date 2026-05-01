@@ -82,6 +82,10 @@ services:
 
       - JWT_SECRET=secret
 
+      - EMAIL_USER=${EMAIL_USER}
+
+      - EMAIL_PASS=${EMAIL_PASS}
+
     networks:
 
       - smartcare-net
@@ -128,6 +132,10 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:5002
 
       - INTERNAL_SERVICE_SECRET=secret
+
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:5001
+
+      - PATIENT_SERVICE_URL=http://patient-service:5005
 
     networks:
 
