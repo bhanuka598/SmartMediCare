@@ -22,6 +22,16 @@ router.patch(
   serviceAuth,
   appointmentController.markAppointmentPaidInternal
 );
+router.patch(
+  "/internal/:id/mark-refunded",
+  serviceAuth,
+  appointmentController.markAppointmentRefundedInternal
+);
+router.get(
+  "/internal/:id",
+  serviceAuth,
+  appointmentController.getAppointmentByIdInternal
+);
 
 // Patient routes
 router.post("/", protect, patientOnly, appointmentController.createAppointment);
