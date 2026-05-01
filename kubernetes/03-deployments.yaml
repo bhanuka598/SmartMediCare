@@ -407,6 +407,11 @@ spec:
           value: "production"
         - name: PORT
           value: "5001"
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: smartmedicare-secrets
+              key: APPOINTMENT_MONGODB_URI
         envFrom:
         - configMapRef:
             name: smartmedicare-config
@@ -646,13 +651,14 @@ spec:
             cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /health
+            path: /api/telemedicine/health
             port: 5007
           initialDelaySeconds: 30
           periodSeconds: 10
+          failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /health
+            path: /api/telemedicine/health
             port: 5007
           initialDelaySeconds: 5
           periodSeconds: 5

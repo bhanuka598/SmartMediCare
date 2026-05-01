@@ -549,6 +549,42 @@ const markAppointmentPaid = async (id) => {
   }
 };
 
+const markAppointmentRefunded = async (id) => {
+  try {
+    const appointment = await Appointment.findById(id);
+
+    if (!appointment) {
+      return {
+        success: false,
+        message: "Appointment not found"
+      };
+    }
+
+    if (appointment.paymentStatus === "REFUNDED") {
+      return {
+        success: true,
+        message: "Already refunded",
+        data: appointment
+      };
+    }
+
+    appointment.paymentStatus = "REFUNDED";
+    await appointment.save();
+
+    return {
+      success: true,
+      message: "Refund recorded",
+      data: appointment
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Error updating refund status",
+      error: error.message
+    };
+  }
+};
+
 const cancelAppointment = async (id, reason, cancelledBy, userId) => {
   try {
     const appointment = await Appointment.findById(id);
@@ -1041,6 +1077,7 @@ module.exports = {
   getAppointmentById,
   updateAppointment,
   markAppointmentPaid,
+  markAppointmentRefunded,
   cancelAppointment,
   confirmAppointment,
   rejectAppointment,

@@ -9,19 +9,53 @@ export function AppointmentCard({
   onJoin,
   onCancel,
   onPay,
+  onRefund,
   onViewNotes,
   onUpdate,
   isJoinLoading = false,
   isCancelLoading = false,
   isPaymentLoading = false,
+  isRefundLoading = false,
   isUpdateLoading = false
 }) {
   const paymentPending =
     String(appointment.paymentStatus || '').toUpperCase() === 'PENDING';
+  const paymentPaid =
+    String(appointment.paymentStatus || '').toUpperCase() === 'PAID';
+  const paymentRefunded =
+    String(appointment.paymentStatus || '').toUpperCase() === 'REFUNDED';
   const needsPayment =
     appointment.status === 'upcoming' &&
     paymentPending &&
     Number(appointment.fee) > 0;
+  const canRequestRefund =
+    appointment.status === 'cancelled' &&
+    paymentPaid;
+
+  const refundPayoutStatus = String(
+    appointment.refundPayoutStatus || 'none'
+  ).toLowerCase();
+
+  let refundBadgeVariant = 'info';
+  let refundBadgeLabel = 'Refunded';
+  if (paymentRefunded) {
+    if (refundPayoutStatus === 'paid') {
+      refundBadgeVariant = 'success';
+      refundBadgeLabel = 'Refunded';
+    } else if (refundPayoutStatus === 'rejected') {
+      refundBadgeVariant = 'error';
+      refundBadgeLabel = 'Refund rejected';
+    } else if (refundPayoutStatus === 'pending') {
+      refundBadgeVariant = 'warning';
+      refundBadgeLabel = 'Refund in progress';
+    } else if (refundPayoutStatus === 'failed') {
+      refundBadgeVariant = 'error';
+      refundBadgeLabel = 'Refund failed';
+    } else {
+      refundBadgeVariant = 'warning';
+      refundBadgeLabel = 'Refund pending';
+    }
+  }
 
   const statusConfig = {
     upcoming: {
@@ -102,18 +136,22 @@ export function AppointmentCard({
                   <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
                     <Badge
                       variant={
-                        String(appointment.paymentStatus || '').toUpperCase() === 'PAID'
-                          ? 'success'
-                          : paymentPending
-                            ? 'warning'
-                            : 'default'
+                        paymentRefunded
+                          ? refundBadgeVariant
+                          : paymentPaid
+                            ? 'success'
+                            : paymentPending
+                              ? 'warning'
+                              : 'default'
                       }
                     >
-                      {String(appointment.paymentStatus || '').toUpperCase() === 'PAID'
-                        ? 'Paid'
-                        : paymentPending
-                          ? 'Payment pending'
-                          : appointment.paymentStatus || 'Payment'}
+                      {paymentRefunded
+                        ? refundBadgeLabel
+                        : paymentPaid
+                          ? 'Paid'
+                          : paymentPending
+                            ? 'Payment pending'
+                            : appointment.paymentStatus || 'Payment'}
                     </Badge>
                     {appointment.feeFormatted && (
                       <span className="inline-flex items-center gap-1 text-slate-600">
@@ -121,6 +159,14 @@ export function AppointmentCard({
                         {appointment.feeFormatted}
                       </span>
                     )}
+                    {paymentRefunded &&
+                      refundPayoutStatus === 'rejected' &&
+                      appointment.refundPayoutRejectReason?.trim() && (
+                        <p className="w-full text-xs text-rose-700 mt-2 leading-snug">
+                          <span className="font-medium text-rose-800">Reason: </span>
+                          <span className="whitespace-pre-wrap">{appointment.refundPayoutRejectReason.trim()}</span>
+                        </p>
+                      )}
                   </div>
                 )}
               </div>
@@ -204,6 +250,22 @@ export function AppointmentCard({
                   className="w-full sm:w-auto gap-2"
                 >
                   <FileText className="h-4 w-4" /> View Notes
+                </Button>
+              )}
+
+              {canRequestRefund && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRefund?.(appointment.id)}
+                  disabled={isRefundLoading}
+                  className="w-full sm:w-auto gap-2"
+                >
+                  {isRefundLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Apply Refund'
+                  )}
                 </Button>
               )}
 
