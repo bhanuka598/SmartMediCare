@@ -15,7 +15,7 @@ export function AppointmentCard({
   isJoinLoading = false,
   isCancelLoading = false,
   isPaymentLoading = false,
-  isRefundLoading = false
+  isRefundLoading = false,
   isUpdateLoading = false
 }) {
   const paymentPending =
