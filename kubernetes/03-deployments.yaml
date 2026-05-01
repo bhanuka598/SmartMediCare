@@ -23,9 +23,10 @@ spec:
     spec:
       containers:
       - name: client
-        image: smartmedicare/client:latest
+        image: smartmedicare-client:prod
+        imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 3000
+        - containerPort: 80
           name: http
         env:
         - name: VITE_API_URL
@@ -42,14 +43,14 @@ spec:
         livenessProbe:
           httpGet:
             path: /
-            port: 3000
+            port: 80
           initialDelaySeconds: 30
           periodSeconds: 10
           failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /
-            port: 3000
+            port: 80
           initialDelaySeconds: 5
           periodSeconds: 5
           failureThreshold: 3
@@ -65,7 +66,7 @@ spec:
     app: client
   ports:
   - port: 80
-    targetPort: 3000
+    targetPort: 80
     name: http
   type: ClusterIP
 
@@ -94,7 +95,8 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: smartmedicare/gateway:latest
+        image: smartmedicare-gateway:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000
           name: http
@@ -170,7 +172,8 @@ spec:
     spec:
       containers:
       - name: auth-service
-        image: smartmedicare/auth-service:latest
+        image: smartmedicare-auth-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5002
           name: http
@@ -244,7 +247,8 @@ spec:
     spec:
       containers:
       - name: patient-service
-        image: smartmedicare/patient-service:latest
+        image: smartmedicare-patient-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5005
           name: http
@@ -318,7 +322,8 @@ spec:
     spec:
       containers:
       - name: doctor-service
-        image: smartmedicare/doctor-service:latest
+        image: smartmedicare-doctor-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5003
           name: http
@@ -392,7 +397,8 @@ spec:
     spec:
       containers:
       - name: appointment-service
-        image: smartmedicare/appointment-service:latest
+        image: smartmedicare-appointment-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5001
           name: http
@@ -466,7 +472,8 @@ spec:
     spec:
       containers:
       - name: notification-service
-        image: smartmedicare/notification-service:latest
+        image: smartmedicare-notification-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5004
           name: http
@@ -540,7 +547,8 @@ spec:
     spec:
       containers:
       - name: payment-service
-        image: smartmedicare/payment-service:latest
+        image: smartmedicare-payment-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5006
           name: http
@@ -614,7 +622,8 @@ spec:
     spec:
       containers:
       - name: telemedicine-service
-        image: smartmedicare/telemedicine-service:latest
+        image: smartmedicare-telemedicine-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5007
           name: http

@@ -70,22 +70,34 @@ minikube addons enable ingress
 
 ### Deploy
 ```bash
+# Build Docker images
+docker compose build
+
+# Load images into Minikube so Kubernetes can use local images
+minikube image load smartmedicare-client:latest
+minikube image load smartmedicare-gateway:latest
+minikube image load smartmedicare-auth-service:latest
+minikube image load smartmedicare-patient-service:latest
+minikube image load smartmedicare-doctor-service:latest
+minikube image load smartmedicare-appointment-service:latest
+minikube image load smartmedicare-notification-service:latest
+minikube image load smartmedicare-payment-service:latest
+minikube image load smartmedicare-telemedicine-service:latest
+
 # Apply Kubernetes manifests
 kubectl apply -f kubernetes/00-namespace.yaml
 kubectl apply -f kubernetes/01-configmap.yaml
 kubectl apply -f kubernetes/02-secrets.yaml
 kubectl apply -f kubernetes/03-deployments.yaml
-kubectl apply -f kubernetes/04-services.yaml
-kubectl apply -f kubernetes/05-ingress.yaml
+kubectl apply -f kubernetes/04-ingress.yaml
 
 # Check status
 kubectl get pods -n smartmedicare
 kubectl get svc -n smartmedicare
 
-# Port forward for testing
+# Access the gateway API for testing
 kubectl port-forward svc/gateway 5000:5000 -n smartmedicare
 ```
-
 ---
 
 ## Option 3: AWS EKS Deployment
