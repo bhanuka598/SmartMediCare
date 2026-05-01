@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smartmedicare-config
+  namespace: smartmedicare
+data:
+  NODE_ENV: "production"
+  # Service URLs (internal cluster DNS)
+  GATEWAY_URL: "http://gateway:5000"
+  AUTH_SERVICE_URL: "http://auth-service:5002"
+  PATIENT_SERVICE_URL: "http://patient-service:5005"
+  DOCTOR_SERVICE_URL: "http://doctor-service:5003"
+  APPOINTMENT_SERVICE_URL: "http://appointment-service:5001"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:5004"
+  PAYMENT_SERVICE_URL: "http://payment-service:5006"
+  TELEMEDICINE_SERVICE_URL: "http://telemedicine-service:5007"
+  # Client config
+  CLIENT_URL: "http://client:3000"
+  # Logging
+  LOG_LEVEL: "info"
