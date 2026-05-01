@@ -16,5 +16,11 @@ data:
   TELEMEDICINE_SERVICE_URL: "http://telemedicine-service:5007"
   # Client config
   CLIENT_URL: "http://client:3000"
+  # Ports
+  PORT: "5001"
   # Logging
   LOG_LEVEL: "info"
+  # Feature flags
+  ENABLE_REALTIME_TRACKING: "true"
+  ENABLE_QUEUE_MANAGEMENT: "true"
+  ENABLE_REMINDERS: "true"

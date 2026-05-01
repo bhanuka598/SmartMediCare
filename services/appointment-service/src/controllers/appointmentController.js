@@ -106,6 +106,49 @@ exports.getAppointmentByIdInternal = async (req, res) => {
   }
 };
 
+exports.markAppointmentInProgressInternal = async (req, res) => {
+  try {
+    const userId = req.serviceName ? `service:${req.serviceName}` : null;
+    const result = await appointmentService.markInProgress(req.params.id, userId);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error marking appointment in progress",
+      error: error.message
+    });
+  }
+};
+
+exports.completeAppointmentInternal = async (req, res) => {
+  try {
+    const userId = req.serviceName ? `service:${req.serviceName}` : null;
+    const { notes, prescription } = req.body;
+    const result = await appointmentService.completeAppointment(req.params.id, notes, prescription, userId);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error completing appointment",
+      error: error.message
+    });
+  }
+};
+
+exports.markAppointmentNoShowInternal = async (req, res) => {
+  try {
+    const userId = req.serviceName ? `service:${req.serviceName}` : null;
+    const result = await appointmentService.markNoShow(req.params.id, userId);
+    return res.status(result.success ? 200 : 404).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error marking appointment no-show",
+      error: error.message
+    });
+  }
+};
+
 exports.getAppointmentById = async (req, res) => {
   try {
     const result = await appointmentService.getAppointmentById(req.params.id);
