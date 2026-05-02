@@ -84,6 +84,7 @@ minikube image load smartmedicare-notification-service:prod
 minikube image load smartmedicare-payment-service:prod
 minikube image load smartmedicare-telemedicine-service:prod
 
+# When using local Minikube images, ensure `imagePullPolicy` is `IfNotPresent` so Kubernetes does not try to pull from a remote registry.
 # Apply Kubernetes manifests
 kubectl apply -f kubernetes/00-namespace.yaml
 kubectl apply -f kubernetes/01-configmap.yaml
