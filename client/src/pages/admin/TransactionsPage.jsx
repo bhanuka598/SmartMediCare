@@ -22,6 +22,7 @@ import {
 import { Badge } from '../../components/shared/Badge';
 import { Button } from '../../components/shared/Button';
 import { API_URL } from '../../lib/api';
+import { amountToLkr, formatLkr, formatMoneyAmount } from '../../lib/currency';
 
 export function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
@@ -73,7 +74,7 @@ export function TransactionsPage() {
       setStats({
         totalRevenue: txns
           .filter(t => t.status === 'completed')
-          .reduce((sum, t) => sum + (t.amount || 0), 0),
+          .reduce((sum, t) => sum + amountToLkr(t.amount, t.currency), 0),
         totalTransactions: txns.length,
         successfulPayments: txns.filter(t => t.status === 'completed').length,
         pendingPayments: txns.filter(t => t.status === 'pending').length,
@@ -228,7 +229,7 @@ export function TransactionsPage() {
               <div>
                 <p className="text-sm font-medium text-slate-500">Total Revenue</p>
                 <h3 className="text-2xl font-bold text-slate-900">
-                  LKR{stats.totalRevenue.toLocaleString()}
+                  {formatLkr(stats.totalRevenue)}
                 </h3>
               </div>
               <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
@@ -409,7 +410,7 @@ export function TransactionsPage() {
                             <div className="text-sm text-slate-600">{txn.doctorName || 'Unknown'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
-                            ${txn.amount?.toFixed(2) || '0.00'}
+                            {formatMoneyAmount(txn.amount, txn.currency)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {getStatusBadge(txn.status)}
