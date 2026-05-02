@@ -658,31 +658,31 @@ export function RefundsPage() {
                 <table className="w-full table-fixed border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/90">
-                      <th className="w-[13%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="w-[11%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                         Transaction / Appt
                       </th>
-                      <th className="w-[22%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="w-[17%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                         Requester
                       </th>
-                      <th className="w-[11%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="w-[9%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                         Amount
                       </th>
-                      <th className="hidden w-[9%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 xl:table-cell">
+                      <th className="hidden w-[7%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 xl:table-cell">
                         Method
                       </th>
-                      <th className="w-[14%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="w-[11%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                         Submitted
                       </th>
-                      <th className="min-w-0 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="w-[17%] min-w-0 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                         Reason
                       </th>
-                      <th className="hidden w-[11%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 2xl:table-cell">
+                      <th className="hidden w-[9%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600 2xl:table-cell">
                         Refund ID
                       </th>
-                      <th className="w-[12%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="w-[10%] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                         Payout
                       </th>
-                      <th className="w-[11%] px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      <th className="w-[9%] px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                         Actions
                       </th>
                     </tr>
@@ -725,10 +725,10 @@ export function RefundsPage() {
                               {formatSubmitted(txn)}
                             </span>
                           </td>
-                          <td className="min-w-0 px-3 py-2.5 align-top">
+                          <td className="min-w-0 overflow-hidden px-3 py-2.5 align-top">
                             {txn.refundReason ? (
                               <span
-                                className="line-clamp-4 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-700"
+                                className="line-clamp-4 block whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-700"
                                 title={txn.refundReason}
                               >
                                 {txn.refundReason}
@@ -737,7 +737,7 @@ export function RefundsPage() {
                               <span className="text-slate-400">—</span>
                             )}
                           </td>
-                          <td className="hidden min-w-0 px-3 py-2.5 align-top 2xl:table-cell">
+                          <td className="hidden min-w-0 overflow-hidden px-3 py-2.5 align-top 2xl:table-cell">
                             {txn.refundId ? (
                               <Badge
                                 className="inline-block max-w-full truncate bg-blue-100 px-2 py-0.5 font-mono text-[10px] text-blue-900"
