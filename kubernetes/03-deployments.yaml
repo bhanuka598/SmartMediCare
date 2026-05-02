@@ -24,7 +24,7 @@ spec:
       containers:
       - name: client
         image: smartmedicare-client:prod
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
           name: http
@@ -95,8 +95,8 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: smartmedicare-gateway:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-gateway:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5000
           name: http
@@ -172,8 +172,8 @@ spec:
     spec:
       containers:
       - name: auth-service
-        image: smartmedicare-auth-service:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-auth-service:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5002
           name: http
@@ -247,8 +247,8 @@ spec:
     spec:
       containers:
       - name: patient-service
-        image: smartmedicare-patient-service:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-patient-service:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5005
           name: http
@@ -322,8 +322,8 @@ spec:
     spec:
       containers:
       - name: doctor-service
-        image: smartmedicare-doctor-service:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-doctor-service:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5003
           name: http
@@ -397,8 +397,8 @@ spec:
     spec:
       containers:
       - name: appointment-service
-        image: smartmedicare-appointment-service:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-appointment-service:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5001
           name: http
@@ -477,8 +477,8 @@ spec:
     spec:
       containers:
       - name: notification-service
-        image: smartmedicare-notification-service:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-notification-service:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5004
           name: http
@@ -552,8 +552,8 @@ spec:
     spec:
       containers:
       - name: payment-service
-        image: smartmedicare-payment-service:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-payment-service:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5006
           name: http
@@ -627,8 +627,8 @@ spec:
     spec:
       containers:
       - name: telemedicine-service
-        image: smartmedicare-telemedicine-service:latest
-        imagePullPolicy: IfNotPresent
+        image: smartmedicare-telemedicine-service:prod
+        imagePullPolicy: Always
         ports:
         - containerPort: 5007
           name: http

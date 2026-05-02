@@ -75,14 +75,14 @@ docker compose build
 
 # Load images into Minikube so Kubernetes can use local images
 minikube image load smartmedicare-client:prod
-minikube image load smartmedicare-gateway:latest
-minikube image load smartmedicare-auth-service:latest
-minikube image load smartmedicare-patient-service:latest
-minikube image load smartmedicare-doctor-service:latest
-minikube image load smartmedicare-appointment-service:latest
-minikube image load smartmedicare-notification-service:latest
-minikube image load smartmedicare-payment-service:latest
-minikube image load smartmedicare-telemedicine-service:latest
+minikube image load smartmedicare-gateway:prod
+minikube image load smartmedicare-auth-service:prod
+minikube image load smartmedicare-patient-service:prod
+minikube image load smartmedicare-doctor-service:prod
+minikube image load smartmedicare-appointment-service:prod
+minikube image load smartmedicare-notification-service:prod
+minikube image load smartmedicare-payment-service:prod
+minikube image load smartmedicare-telemedicine-service:prod
 
 # Apply Kubernetes manifests
 kubectl apply -f kubernetes/00-namespace.yaml

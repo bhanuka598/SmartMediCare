@@ -28,7 +28,7 @@ services:
   gateway:
 
     build: ./gateway
-    image: smartmedicare-gateway:latest
+    image: smartmedicare-gateway:prod
     container_name: gateway
 
     ports:
@@ -73,7 +73,7 @@ services:
   auth-service:
 
     build: ./services/auth-service
-    image: smartmedicare-auth-service:latest
+    image: smartmedicare-auth-service:prod
     container_name: auth-service
 
     environment:
@@ -97,7 +97,7 @@ services:
   patient-service:
 
     build: ./services/patient-service
-    image: smartmedicare-patient-service:latest
+    image: smartmedicare-patient-service:prod
     container_name: patient-service
 
     environment:
@@ -120,7 +120,7 @@ services:
   doctor-service:
 
     build: ./services/doctor-service
-    image: smartmedicare-doctor-service:latest
+    image: smartmedicare-doctor-service:prod
     container_name: doctor-service
 
     environment:
@@ -148,7 +148,7 @@ services:
   appointment-service:
 
     build: ./services/appointment-service
-    image: smartmedicare-appointment-service:latest
+    image: smartmedicare-appointment-service:prod
     container_name: appointment-service
 
     environment:
@@ -180,7 +180,7 @@ services:
   payment-service:
 
     build: ./services/payment-service
-    image: smartmedicare-payment-service:latest
+    image: smartmedicare-payment-service:prod
     container_name: payment-service
 
     environment:
@@ -210,7 +210,7 @@ services:
   notification-service:
 
     build: ./services/notification-service
-    image: smartmedicare-notification-service:latest
+    image: smartmedicare-notification-service:prod
     container_name: notification-service
 
     environment:
@@ -229,7 +229,7 @@ services:
 
   telemedicine-service:
     build: ./services/telemedicine-service
-    image: smartmedicare-telemedicine-service:latest
+    image: smartmedicare-telemedicine-service:prod
     container_name: telemedicine-service
     environment:
       - PORT=5007
