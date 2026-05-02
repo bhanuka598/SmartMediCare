@@ -70,8 +70,8 @@ minikube addons enable ingress
 
 ### Deploy
 ```powershell
-# Build Docker images
-docker compose build
+# Build Docker images (use --no-cache to rebuild with latest source code changes)
+docker compose build --no-cache
 
 # Load images into Minikube so Kubernetes can use local images
 minikube image load smartmedicare-client:prod
