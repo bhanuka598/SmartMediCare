@@ -95,7 +95,7 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: smartmedicare-gateway:latest
+        image: smartmedicare-gateway:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000
@@ -172,7 +172,7 @@ spec:
     spec:
       containers:
       - name: auth-service
-        image: smartmedicare-auth-service:latest
+        image: smartmedicare-auth-service:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5002
@@ -247,7 +247,7 @@ spec:
     spec:
       containers:
       - name: patient-service
-        image: smartmedicare-patient-service:latest
+        image: smartmedicare-patient-service:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5005
@@ -322,7 +322,7 @@ spec:
     spec:
       containers:
       - name: doctor-service
-        image: smartmedicare-doctor-service:latest
+        image: smartmedicare-doctor-service:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5003
@@ -397,7 +397,7 @@ spec:
     spec:
       containers:
       - name: appointment-service
-        image: smartmedicare-appointment-service:latest
+        image: smartmedicare-appointment-service:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5001
@@ -477,7 +477,7 @@ spec:
     spec:
       containers:
       - name: notification-service
-        image: smartmedicare-notification-service:latest
+        image: smartmedicare-notification-service:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5004
@@ -552,7 +552,7 @@ spec:
     spec:
       containers:
       - name: payment-service
-        image: smartmedicare-payment-service:latest
+        image: smartmedicare-payment-service:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5006
@@ -627,7 +627,7 @@ spec:
     spec:
       containers:
       - name: telemedicine-service
-        image: smartmedicare-telemedicine-service:latest
+        image: smartmedicare-telemedicine-service:prod
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5007

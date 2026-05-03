@@ -33,6 +33,7 @@ export function UsersPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [editFormData, setEditFormData] = useState({ username: '', email: '', role: 'patient', isActive: true });
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -82,6 +83,39 @@ export function UsersPage() {
     ));
     setIsEditModalOpen(false);
     setEditingUser(null);
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (
+      !window.confirm(
+        `Delete user "${user.username}" (${user.email})? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(user._id);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/auth/users/${user._id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to delete user');
+      }
+
+      setUsers((prev) => prev.filter((u) => u._id !== user._id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const filteredUsers = users.filter((u) => {
@@ -278,10 +312,17 @@ export function UsersPage() {
                               <Edit size={18} />
                             </button>
                             <button
-                              className="text-slate-400 hover:text-red-600 transition-colors p-2 rounded-md hover:bg-red-50"
+                              type="button"
+                              onClick={() => handleDeleteUser(user)}
+                              disabled={deletingId === user._id}
+                              className="text-slate-400 hover:text-red-600 transition-colors p-2 rounded-md hover:bg-red-50 disabled:opacity-50 disabled:pointer-events-none"
                               title="Delete User"
                             >
-                              <Trash2 size={18} />
+                              {deletingId === user._id ? (
+                                <Loader2 size={18} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={18} />
+                              )}
                             </button>
                           </div>
                         </td>
