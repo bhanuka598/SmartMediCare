@@ -43,7 +43,7 @@ const generateServiceToken = () => {
  */
 const getAppointmentById = async (appointmentId) => {
   const operation = async () => {
-    const url = `${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}`;
+    const url = `${APPOINTMENT_SERVICE_URL}/api/appointments/internal/${appointmentId}`;
     const serviceToken = generateServiceToken();
 
     const response = await httpRequestWithRetry(
@@ -155,21 +155,20 @@ const updateAppointmentStatus = async (appointmentId, status, additionalData = {
     // Map status to appropriate endpoint
     switch (status) {
       case "IN_PROGRESS":
-        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}/in-progress`;
+        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/internal/${appointmentId}/in-progress`;
         break;
       case "COMPLETED":
-        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}/complete`;
+        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/internal/${appointmentId}/complete`;
         data = {
           notes: additionalData.notes || "Consultation completed via telemedicine",
           prescription: additionalData.prescription || null
         };
         break;
       case "NO_SHOW":
-        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}/no-show`;
+        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/internal/${appointmentId}/no-show`;
         break;
       default:
-        // Generic update endpoint
-        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}`;
+        endpoint = `${APPOINTMENT_SERVICE_URL}/api/appointments/internal/${appointmentId}`;
         method = 'PUT';
         data = { status };
     }

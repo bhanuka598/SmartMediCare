@@ -32,6 +32,21 @@ router.get(
   serviceAuth,
   appointmentController.getAppointmentByIdInternal
 );
+router.patch(
+  "/internal/:id/in-progress",
+  serviceAuth,
+  appointmentController.markAppointmentInProgressInternal
+);
+router.patch(
+  "/internal/:id/complete",
+  serviceAuth,
+  appointmentController.completeAppointmentInternal
+);
+router.patch(
+  "/internal/:id/no-show",
+  serviceAuth,
+  appointmentController.markAppointmentNoShowInternal
+);
 
 // Patient routes
 router.post("/", protect, patientOnly, appointmentController.createAppointment);

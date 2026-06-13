@@ -22,5 +22,6 @@ router.post('/change-password', verifyToken, authController.changePassword);
 
 // Admin only routes
 router.get('/users', verifyTokenAndUser, authorize('admin'), authController.getAllUsers);
+router.delete('/users/:id', verifyTokenAndUser, authorize('admin'), authController.deleteUser);
 
 module.exports = router;
