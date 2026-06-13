@@ -30,6 +30,7 @@ import { AdminDashboardPage } from './pages/admin/DashboardPage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { VerifyDoctorsPage } from './pages/admin/VerifyDoctorsPage';
 import { TransactionsPage } from './pages/admin/TransactionsPage';
+import { RefundsPage } from './pages/admin/RefundsPage';
 
 // Placeholder Component
 const PlaceholderPage = ({ title }) => (
@@ -127,6 +128,10 @@ export function App() {
             <Route
               path="/admin/transactions"
               element={<TransactionsPage />}
+            />
+            <Route
+              path="/admin/refunds"
+              element={<RefundsPage />}
             />
           </Route>
 

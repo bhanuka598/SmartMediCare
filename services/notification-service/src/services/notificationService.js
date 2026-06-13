@@ -1,7 +1,10 @@
 const { sendEmail, sendSms } = require("./providerService");
 const {
   buildAppointmentBookedNotifications,
-  buildConsultationCompletedNotifications
+  buildConsultationCompletedNotifications,
+  buildPaymentReceivedNotifications,
+  buildPaymentRefundedNotifications,
+  buildRefundPayoutPaidNotifications
 } = require("./templateService");
 
 const dispatchNotification = async (notification) => {
@@ -43,7 +46,25 @@ const notifyConsultationCompleted = async (payload) => {
   return Promise.all(notifications.map(dispatchNotification));
 };
 
+const notifyPaymentReceived = async (payload) => {
+  const notifications = buildPaymentReceivedNotifications(payload);
+  return Promise.all(notifications.map(dispatchNotification));
+};
+
+const notifyPaymentRefunded = async (payload) => {
+  const notifications = buildPaymentRefundedNotifications(payload);
+  return Promise.all(notifications.map(dispatchNotification));
+};
+
+const notifyRefundPayoutPaid = async (payload) => {
+  const notifications = buildRefundPayoutPaidNotifications(payload);
+  return Promise.all(notifications.map(dispatchNotification));
+};
+
 module.exports = {
   notifyAppointmentBooked,
-  notifyConsultationCompleted
+  notifyConsultationCompleted,
+  notifyPaymentReceived,
+  notifyPaymentRefunded,
+  notifyRefundPayoutPaid
 };

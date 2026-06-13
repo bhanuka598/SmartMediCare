@@ -1,0 +1,192 @@
+name: Deploy to AWS EKS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: smartmedicare
+  EKS_NAMESPACE: smartmedicare
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build and push client
+      uses: docker/build-push-action@v5
+      with:
+        context: ./client
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/client:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push gateway
+      uses: docker/build-push-action@v5
+      with:
+        context: ./gateway
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/gateway:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push auth-service
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/auth-service
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/auth-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push patient-service
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/patient-service
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/patient-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push doctor-service
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/doctor-service
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/doctor-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push appointment-service
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/appointment-service
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/appointment-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push notification-service
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/notification-service
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/notification-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push payment-service
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/payment-service
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/payment-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push telemedicine-service
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/telemedicine-service
+        push: true
+        tags: ${{ steps.login-ecr.outputs.registry }}/smartmedicare/telemedicine-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Set image tag output
+      id: meta
+      run: echo "tags=${{ steps.login-ecr.outputs.registry }}/smartmedicare/client:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Update kubeconfig
+      run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+    
+    - name: Update deployment image tags
+      env:
+        ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Update the deployments file with the new image tag
+        sed -i "s|<ACCOUNT_ID>|${{ secrets.AWS_ACCOUNT_ID }}|g" eks/03-deployments.yaml
+        
+        # Apply Kubernetes manifests
+        kubectl apply -f eks/00-namespace.yaml
+        kubectl apply -f eks/01-configmap.yaml
+        kubectl apply -f eks/02-secrets.yaml
+        kubectl apply -f eks/03-deployments.yaml
+        kubectl apply -f eks/04-ingress.yaml
+        kubectl apply -f eks/05-autoscaling.yaml
+    
+    - name: Rollout restart deployments
+      run: |
+        kubectl rollout restart deployment/client -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/gateway -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/auth-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/patient-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/doctor-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/appointment-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/notification-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/payment-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl rollout restart deployment/telemedicine-service -n ${{ env.EKS_NAMESPACE }}
+    
+    - name: Wait for deployments
+      run: |
+        kubectl wait --for=condition=available --timeout=300s deployment/client -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/gateway -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/auth-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/patient-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/doctor-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/appointment-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/notification-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/payment-service -n ${{ env.EKS_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/telemedicine-service -n ${{ env.EKS_NAMESPACE }}
+    
+    - name: Verify deployment
+      run: |
+        echo "=== Pod Status ==="
+        kubectl get pods -n ${{ env.EKS_NAMESPACE }}
+        
+        echo "=== Service Status ==="
+        kubectl get svc -n ${{ env.EKS_NAMESPACE }}
+        
+        echo "=== Ingress Status ==="
+        kubectl get ingress -n ${{ env.EKS_NAMESPACE }}
+        
+        echo "=== ALB DNS ==="
+        kubectl get ingress -n ${{ env.EKS_NAMESPACE }} smartmedicare-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, Loader2, AlertCircle, Plus } from 'lucide-react';
 import { AppointmentCard } from '../../components/appointments/AppointmentCard';
 import { BookAppointmentModal } from '../../components/appointments/BookAppointmentModal';
+import { RefundRequestModal } from '../../components/appointments/RefundRequestModal';
 import { UpdateAppointmentModal } from '../../components/appointments/UpdateAppointmentModal';
 import { Button } from '../../components/shared/Button';
 import { useAuth } from '../../contexts/AuthContext';
@@ -70,11 +71,15 @@ export function AppointmentsPage() {
   const [cancelLoading, setCancelLoading] = useState(null);
   const [joinLoading, setJoinLoading] = useState(null);
   const [payLoading, setPayLoading] = useState(null);
+  const [refundLoading, setRefundLoading] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState({});
+  const [refundInfoByAppointment, setRefundInfoByAppointment] = useState({});
 
   const { user } = useAuth();
   const patientId = user?.id || user?._id;
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [refundModalAppointment, setRefundModalAppointment] = useState(null);
+  const [refundModalError, setRefundModalError] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [checkoutBanner, setCheckoutBanner] = useState(null);
   const [updateModalAppointment, setUpdateModalAppointment] = useState(null);
@@ -120,6 +125,33 @@ export function AppointmentsPage() {
       if (!silent) setError(err.message);
     } finally {
       if (!silent) setLoading(false);
+    }
+
+    try {
+      const txRes = await fetch(`${API_URL}/api/payments/me/transactions`, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (txRes.ok) {
+        const txData = await txRes.json();
+        const map = {};
+        for (const tx of txData.transactions || []) {
+          if (!tx.appointmentId) continue;
+          map[String(tx.appointmentId)] = {
+            status: tx.status,
+            refundPayoutStatus: tx.refundPayoutStatus || 'none',
+            refundedAt: tx.refundedAt || null,
+            refundPayoutPaidAt: tx.refundPayoutPaidAt || null,
+            refundPayoutRejectReason: tx.refundPayoutRejectReason || '',
+            refundPayoutRejectedAt: tx.refundPayoutRejectedAt || null
+          };
+        }
+        setRefundInfoByAppointment(map);
+      }
+    } catch (txErr) {
+      console.warn('Could not load patient transactions:', txErr);
     }
   }, [patientId]);
 
@@ -202,7 +234,7 @@ export function AppointmentsPage() {
 
     const intervalId = setInterval(() => {
       fetchAppointments();
-    }, 15000);
+    }, 35000);
 
     return () => {
       clearInterval(intervalId);
@@ -331,6 +363,56 @@ export function AppointmentsPage() {
     }
   };
 
+  const handleRefund = (appointment) => {
+    if (!appointment) return;
+    setRefundModalError(null);
+    setRefundModalAppointment(appointment);
+  };
+
+  const handleRefundSubmit = async (formData) => {
+    if (!refundModalAppointment) return;
+    const appointmentId = refundModalAppointment.id;
+
+    try {
+      setRefundLoading(appointmentId);
+      setRefundModalError(null);
+      const res = await fetch(`${API_URL}/api/payments/appointments/${appointmentId}/refund`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          requesterName: formData.requesterName,
+          requesterEmail: formData.requesterEmail,
+          requesterPhone: formData.requesterPhone,
+          reason: formData.reason
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Could not submit refund request');
+      }
+
+      const notes = [];
+      if (data.stripeWarning) notes.push(data.stripeWarning);
+      if (data.appointmentSyncWarning) notes.push(data.appointmentSyncWarning);
+      setCheckoutBanner({
+        type: 'success',
+        text: notes.length
+          ? `Refund request submitted. ${notes.join(' ')}`
+          : 'Refund request submitted. Our admin team will review it shortly.'
+      });
+      setRefundModalAppointment(null);
+      await fetchAppointments({ silent: true });
+    } catch (err) {
+      console.error('Refund apply error:', err);
+      setRefundModalError(err.message || 'Could not submit refund request');
+    } finally {
+      setRefundLoading(null);
+    }
+  };
+
   // View notes (placeholder)
   const handleViewNotes = (appointmentId) => {
     console.log('View notes', appointmentId);
@@ -374,38 +456,45 @@ export function AppointmentsPage() {
   };
 
   // Transform backend appointment to frontend format
-  const transformAppointment = (app) => ({
-    id: app._id,
-    doctorName: app.doctorName || 'Unknown Doctor',
-    specialty: app.specialty,
-    date: formatDate(app.appointmentDate),
-    time: formatTime(app.appointmentTime),
-    endTime: app.endTime ? formatTime(app.endTime) : null,
-    status: mapStatus(app.status),
-    statusLabel: getStatusLabel(app.status),
-    rawStatus: app.status,
-    type: app.type === 'TELEMEDICINE' ? 'video' : 'in-person',
-    doctorImage: app.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
-    meetingLink: app.meetingLink,
-    queueNumber: app.queueNumber,
-    estimatedStartTime: app.estimatedStartTime,
-    duration: app.duration,
-    reason: app.reason,
-    symptoms: app.symptoms,
-    doctorNotes: app.doctorNotes,
-    cancellationReason: app.cancellationReason,
-    rescheduleCount: app.rescheduleCount,
-    rating: app.rating,
-    canRate: app.status === 'COMPLETED' && !app.rating?.score,
-    fee: app.fee ?? 0,
-    paymentStatus: app.paymentStatus || 'PENDING',
-    feeFormatted:
-      typeof app.fee === 'number' && app.fee > 0
-        ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(app.fee)
-        : null,
-    canModify: ['PENDING', 'CONFIRMED'].includes(app.status),
-    originalData: app // Keep original data for reference
-  });
+  const transformAppointment = (app) => {
+    const refundInfo = refundInfoByAppointment[String(app._id)] || null;
+    return {
+      id: app._id,
+      doctorName: app.doctorName || 'Unknown Doctor',
+      specialty: app.specialty,
+      date: formatDate(app.appointmentDate),
+      time: formatTime(app.appointmentTime),
+      endTime: app.endTime ? formatTime(app.endTime) : null,
+      status: mapStatus(app.status),
+      statusLabel: getStatusLabel(app.status),
+      rawStatus: app.status,
+      type: app.type === 'TELEMEDICINE' ? 'video' : 'in-person',
+      doctorImage: app.doctorImage || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150&h=150',
+      meetingLink: app.meetingLink,
+      queueNumber: app.queueNumber,
+      estimatedStartTime: app.estimatedStartTime,
+      duration: app.duration,
+      reason: app.reason,
+      symptoms: app.symptoms,
+      doctorNotes: app.doctorNotes,
+      cancellationReason: app.cancellationReason,
+      rescheduleCount: app.rescheduleCount,
+      rating: app.rating,
+      canRate: app.status === 'COMPLETED' && !app.rating?.score,
+      fee: app.fee ?? 0,
+      paymentStatus: app.paymentStatus || 'PENDING',
+      refundPayoutStatus: refundInfo?.refundPayoutStatus || 'none',
+      refundPayoutRejectReason: refundInfo?.refundPayoutRejectReason || '',
+      refundPayoutRejectedAt: refundInfo?.refundPayoutRejectedAt || null,
+      transactionStatus: refundInfo?.status || null,
+      feeFormatted:
+        typeof app.fee === 'number' && app.fee > 0
+          ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(app.fee)
+          : null,
+      canModify: ['PENDING', 'CONFIRMED'].includes(app.status),
+      originalData: app // Keep original data for reference
+    };
+  };
 
   // Refresh a single appointment's status on demand.
   const refreshAppointmentStatus = async (appointmentId) => {
@@ -567,12 +656,14 @@ export function AppointmentsPage() {
               onCancel={(id) => handleCancel(id)}
               onUpdate={(id) => openUpdateAppointment(id)}
               onPay={(id) => handlePay(id)}
+              onRefund={() => handleRefund(appointment)}
               onViewNotes={(id) => handleViewNotes(id)}
               onRate={(id, rating, feedback) => handleRate(id, rating, feedback)}
               onTrack={() => refreshAppointmentStatus(appointment.id)}
               isJoinLoading={joinLoading === appointment.id}
               isCancelLoading={cancelLoading === appointment.id}
               isPaymentLoading={payLoading === appointment.id}
+              isRefundLoading={refundLoading === appointment.id}
             />
           ))
         ) : (
@@ -603,6 +694,21 @@ export function AppointmentsPage() {
         patientPhone={user?.phone}
       />
 
+      <RefundRequestModal
+        isOpen={Boolean(refundModalAppointment)}
+        onClose={() => {
+          if (refundLoading) return;
+          setRefundModalAppointment(null);
+          setRefundModalError(null);
+        }}
+        appointment={refundModalAppointment}
+        defaultName={user?.name || user?.username || ''}
+        defaultEmail={user?.email || ''}
+        defaultPhone={user?.phone || ''}
+        isSubmitting={refundLoading === refundModalAppointment?.id}
+        errorMessage={refundModalError}
+        onSubmit={handleRefundSubmit}
+      />
       <UpdateAppointmentModal
         isOpen={!!updateModalAppointment}
         onClose={() => setUpdateModalAppointment(null)}

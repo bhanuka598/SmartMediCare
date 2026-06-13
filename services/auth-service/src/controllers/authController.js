@@ -287,6 +287,34 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// Delete user (admin only)
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: 'User id is required' });
+    }
+
+    if (String(req.userId) === String(id)) {
+      return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+
+    const deleted = await withRetry(
+      () => User.findByIdAndDelete(id),
+      { shouldRetry: isRetryableDBError }
+    );
+
+    if (!deleted) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('DeleteUser error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // In-memory store for verification codes (use Redis in production)
 const verificationCodes = new Map();
 

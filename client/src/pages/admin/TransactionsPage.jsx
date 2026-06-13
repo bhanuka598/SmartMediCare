@@ -3,16 +3,13 @@ import {
   CreditCard,
   Search,
   Download,
-  Filter,
-  ArrowUpRight,
   ArrowDownRight,
-  Calendar,
   DollarSign,
   CheckCircle,
   XCircle,
   Clock,
   Loader2,
-  FileText,
+  RotateCcw,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -25,11 +22,14 @@ import {
 import { Badge } from '../../components/shared/Badge';
 import { Button } from '../../components/shared/Button';
 import { API_URL } from '../../lib/api';
+import { amountToLkr, formatLkr, formatMoneyAmount } from '../../lib/currency';
 
 export function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionMessage, setActionMessage] = useState(null);
+  const [refundingId, setRefundingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
@@ -42,7 +42,8 @@ export function TransactionsPage() {
     totalTransactions: 0,
     successfulPayments: 0,
     pendingPayments: 0,
-    failedPayments: 0
+    failedPayments: 0,
+    refundedPayments: 0
   });
 
   useEffect(() => {
@@ -73,11 +74,12 @@ export function TransactionsPage() {
       setStats({
         totalRevenue: txns
           .filter(t => t.status === 'completed')
-          .reduce((sum, t) => sum + (t.amount || 0), 0),
+          .reduce((sum, t) => sum + amountToLkr(t.amount, t.currency), 0),
         totalTransactions: txns.length,
         successfulPayments: txns.filter(t => t.status === 'completed').length,
         pendingPayments: txns.filter(t => t.status === 'pending').length,
-        failedPayments: txns.filter(t => t.status === 'failed').length
+        failedPayments: txns.filter(t => t.status === 'failed').length,
+        refundedPayments: txns.filter(t => t.status === 'refunded').length
       });
     } catch (err) {
       setError(err.message);
@@ -124,6 +126,46 @@ export function TransactionsPage() {
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
+  };
+
+  const handleRefund = async (txn) => {
+    if (txn.status !== 'completed') return;
+    const confirmed = window.confirm('Apply refund for this transaction?');
+    if (!confirmed) return;
+
+    setActionMessage(null);
+    setRefundingId(txn._id);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/payments/transactions/${txn._id}/refund`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: `Admin refund for appointment ${txn.appointmentId || ''}`.trim()
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to refund transaction');
+      }
+
+      setActionMessage({
+        type: 'success',
+        text: 'Refund completed successfully.'
+      });
+      await fetchTransactions();
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err.message || 'Refund failed'
+      });
+    } finally {
+      setRefundingId(null);
+    }
   };
 
   // Filter transactions
@@ -180,14 +222,14 @@ export function TransactionsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">Total Revenue</p>
                 <h3 className="text-2xl font-bold text-slate-900">
-                  LKR{stats.totalRevenue.toLocaleString()}
+                  {formatLkr(stats.totalRevenue)}
                 </h3>
               </div>
               <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
@@ -238,7 +280,33 @@ export function TransactionsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Refunded</p>
+                <h3 className="text-2xl font-bold text-blue-600">{stats.refundedPayments}</h3>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <RotateCcw size={20} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {actionMessage && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            actionMessage.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : 'border-red-200 bg-red-50 text-red-900'
+          }`}
+        >
+          {actionMessage.text}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -314,12 +382,13 @@ export function TransactionsPage() {
                       <th className="px-6 py-4 text-sm font-semibold text-slate-900">Amount</th>
                       <th className="px-6 py-4 text-sm font-semibold text-slate-900">Status</th>
                       <th className="px-6 py-4 text-sm font-semibold text-slate-900">Method</th>
+                      <th className="px-6 py-4 text-sm font-semibold text-slate-900">Refund</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {paginatedTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan="8" className="px-6 py-12 text-center text-slate-500">
                           {searchTerm || statusFilter !== 'all' || dateFilter !== 'all' 
                             ? "No transactions matching your filters." 
                             : "No transactions found."}
@@ -341,13 +410,35 @@ export function TransactionsPage() {
                             <div className="text-sm text-slate-600">{txn.doctorName || 'Unknown'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
-                            ${txn.amount?.toFixed(2) || '0.00'}
+                            {formatMoneyAmount(txn.amount, txn.currency)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {getStatusBadge(txn.status)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 capitalize">
                             {txn.paymentMethod || 'Card'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {txn.status === 'completed' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRefund(txn)}
+                                disabled={refundingId === txn._id}
+                                className="gap-2"
+                              >
+                                {refundingId === txn._id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="h-4 w-4" />
+                                )}
+                                Refund
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-slate-400">
+                                {txn.status === 'refunded' ? 'Refunded' : '-'}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))

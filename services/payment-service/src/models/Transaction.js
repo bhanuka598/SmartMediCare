@@ -10,11 +10,29 @@ const transactionSchema = new mongoose.Schema(
     amount: { type: Number, default: 0 },
     currency: { type: String, default: "USD" },
     paymentMethod: { type: String, default: "card" },
+    stripeSessionId: { type: String, default: "" },
+    stripePaymentIntentId: { type: String, default: "" },
     status: {
       type: String,
       enum: ["completed", "pending", "failed", "refunded"],
       default: "completed"
-    }
+    },
+    refundId: { type: String, default: "" },
+    refundReason: { type: String, default: "" },
+    refundedBy: { type: String, default: "" },
+    refundedAt: { type: Date, default: null },
+    refundRequesterName: { type: String, default: "" },
+    refundRequesterEmail: { type: String, default: "" },
+    refundRequesterPhone: { type: String, default: "" },
+    refundPayoutStatus: {
+      type: String,
+      enum: ["none", "pending", "paid", "failed", "rejected"],
+      default: "none"
+    },
+    refundPayoutSessionId: { type: String, default: "" },
+    refundPayoutPaidAt: { type: Date, default: null },
+    refundPayoutRejectReason: { type: String, default: "" },
+    refundPayoutRejectedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );

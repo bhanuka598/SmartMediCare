@@ -152,18 +152,18 @@ export function DoctorsPage() {
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center gap-4">
+        <div className="relative z-0 w-full shrink-0 md:min-w-[260px] md:w-80 lg:w-96">
+          <Search className="absolute left-3 top-1/2 z-10 -translate-y-1/2 pointer-events-none text-slate-400 h-5 w-5" />
           <Input
             placeholder="Search doctors, specialties, or symptoms..."
-            className="pl-10"
+            className="pl-10 w-full min-w-0"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
           {SPECIALTIES.map((specialty) => (
             <button
               key={specialty}
